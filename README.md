@@ -12,6 +12,7 @@ Rendered pages: **https://dougcooper.github.io/learnings/**
 | Topic | Read | Source |
 |---|---|---|
 | **TLS 1.3** — RFC 8446: the 1-RTT handshake, key schedule, record layer, 0-RTT resumption, removed TLS 1.2 features, downgrade protection | [open](https://dougcooper.github.io/learnings/rfc8446-tls13-explainer.html) | [`rfc8446-tls13-explainer.html`](rfc8446-tls13-explainer.html) |
+| **Hybrid key exchange** — RFC 9954: running a traditional and a post-quantum algorithm together in TLS 1.3, KEM abstraction, concatenated key shares and secrets, the fixed-length requirement | [open](https://dougcooper.github.io/learnings/rfc9954-hybrid-kex-explainer.html) | [`rfc9954-hybrid-kex-explainer.html`](rfc9954-hybrid-kex-explainer.html) |
 
 ## Adding one
 
