@@ -1,0 +1,2270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RFC 9000 — QUIC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ============ PLANNOTATOR THEME TOKENS ============ */
+  :root {
+    --background: oklch(0.97 0.005 260);
+    --foreground: oklch(0.18 0.02 260);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.18 0.02 260);
+    --muted: oklch(0.92 0.01 260);
+    --muted-foreground: oklch(0.40 0.02 260);
+
+    --primary: oklch(0.50 0.25 280);
+    --primary-foreground: oklch(1 0 0);
+    --secondary: oklch(0.50 0.18 180);
+    --accent: oklch(0.60 0.22 50);
+    --accent-foreground: oklch(0.18 0.02 260);
+
+    --destructive: oklch(0.50 0.25 25);
+    --success: oklch(0.45 0.20 150);
+    --warning: oklch(0.55 0.18 85);
+
+    --border: oklch(0.88 0.01 260);
+    --code-bg: oklch(0.92 0.01 260);
+    --ring: oklch(0.50 0.25 280);
+    --radius: 0.625rem;
+
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+    --font-display: ui-serif, Georgia, 'Times New Roman', serif;
+
+    /* visual-explainer aliases */
+    --bg: var(--background);
+    --surface: var(--card);
+    --surface-elevated: var(--card);
+    --text: var(--foreground);
+    --text-dim: var(--muted-foreground);
+    --border-bright: color-mix(in oklab, var(--border) 60%, var(--foreground) 40%);
+    --primary-dim: color-mix(in oklab, var(--primary) 12%, transparent);
+    --accent-dim: color-mix(in oklab, var(--accent) 14%, transparent);
+    --secondary-dim: color-mix(in oklab, var(--secondary) 14%, transparent);
+    --success-dim: color-mix(in oklab, var(--success) 14%, transparent);
+    --warning-dim: color-mix(in oklab, var(--warning) 16%, transparent);
+    --destructive-dim: color-mix(in oklab, var(--destructive) 12%, transparent);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: oklch(0.15 0.02 260);
+      --foreground: oklch(0.90 0.01 260);
+      --card: oklch(0.22 0.02 260);
+      --card-foreground: oklch(0.90 0.01 260);
+      --muted: oklch(0.26 0.02 260);
+      --muted-foreground: oklch(0.72 0.02 260);
+      --primary: oklch(0.75 0.18 280);
+      --primary-foreground: oklch(0.15 0.02 260);
+      --secondary: oklch(0.72 0.14 180);
+      --accent: oklch(0.70 0.20 60);
+      --border: oklch(0.35 0.02 260);
+      --code-bg: oklch(0.26 0.02 260);
+      --destructive: oklch(0.65 0.20 25);
+      --success: oklch(0.72 0.17 150);
+      --warning: oklch(0.75 0.15 85);
+    }
+  }
+
+  /* ============ RESET + BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background-color: var(--background);
+    background-image:
+      radial-gradient(ellipse at 12% -6%, color-mix(in oklab, var(--primary) 12%, transparent) 0%, transparent 55%),
+      radial-gradient(ellipse at 92% 4%, color-mix(in oklab, var(--secondary) 10%, transparent) 0%, transparent 50%);
+    background-attachment: fixed;
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.65;
+    padding: 40px;
+    min-height: 100vh;
+    overflow-wrap: break-word;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--primary); text-decoration-color: color-mix(in oklab, var(--primary) 40%, transparent); text-underline-offset: 2px; }
+  a:hover { text-decoration-color: var(--primary); }
+
+  h2, h3 { text-wrap: balance; }
+
+  /* ============ ANIMATION ============ */
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeScale { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: scale(1); } }
+  .animate { animation: fadeUp 0.45s ease-out both; animation-delay: calc(var(--i, 0) * 0.05s); }
+  .kpi-card { animation: fadeScale 0.4s ease-out both; animation-delay: calc(var(--i, 0) * 0.06s); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* ============ LAYOUT ============ */
+  .wrap {
+    max-width: 1320px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 190px 1fr;
+    gap: 0 44px;
+  }
+  .main { min-width: 0; max-width: 900px; }
+  .main > * { min-width: 0; }
+
+  .toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    padding: 14px 0;
+    grid-row: 1 / -1;
+    max-height: calc(100dvh - 48px);
+    overflow-y: auto;
+  }
+  .toc::-webkit-scrollbar { width: 3px; }
+  .toc::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .toc-title {
+    font-family: var(--font-mono);
+    font-size: 9px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 2px;
+    color: var(--muted-foreground);
+    padding: 0 0 10px; margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .toc a {
+    display: block; font-size: 11.5px;
+    color: var(--muted-foreground); text-decoration: none;
+    padding: 5px 9px; border-radius: 5px;
+    border-left: 2px solid transparent;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+    line-height: 1.4; margin-bottom: 1px;
+  }
+  .toc a:hover { color: var(--foreground); background: var(--muted); }
+  .toc a.active { color: var(--foreground); border-left-color: var(--primary); background: var(--primary-dim); }
+
+  /* ============ HEADER ============ */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 2.2px;
+    color: var(--primary);
+    margin-bottom: 14px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  }
+  .eyebrow .sep { color: var(--border-bright); }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(34px, 4.6vw, 52px);
+    font-weight: 600; line-height: 1.05;
+    letter-spacing: -1.2px;
+    margin-bottom: 14px;
+    text-wrap: balance;
+  }
+
+  .standfirst {
+    font-size: 18px; line-height: 1.6;
+    color: var(--muted-foreground);
+    max-width: 68ch; margin-bottom: 22px;
+  }
+  .standfirst strong { color: var(--foreground); font-weight: 600; }
+
+  .meta-strip {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    font-family: var(--font-mono); font-size: 11px;
+    margin-bottom: 36px;
+  }
+  .meta-chip {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 999px; padding: 4px 12px;
+    color: var(--muted-foreground);
+  }
+  .meta-chip strong { color: var(--foreground); font-weight: 600; }
+
+  /* ============ SECTION HEADS ============ */
+  .sec-head {
+    display: flex; align-items: baseline; gap: 14px;
+    margin: 64px 0 8px;
+    padding-bottom: 12px;
+    border-bottom: 1.5px solid var(--border);
+    scroll-margin-top: 24px;
+  }
+  .sec-head__num {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+    color: var(--primary); letter-spacing: 1.5px;
+    flex-shrink: 0;
+  }
+  .sec-head__title {
+    font-family: var(--font-display);
+    font-size: 27px; font-weight: 600; letter-spacing: -0.5px;
+    line-height: 1.2;
+  }
+  .sec-intro { color: var(--muted-foreground); margin: 16px 0 24px; max-width: 72ch; }
+  .sec-intro + .sec-intro { margin-top: -12px; }
+
+  p code, li code, td code, .sec-intro code {
+    font-family: var(--font-mono); font-size: 0.86em;
+    background: var(--code-bg); color: var(--foreground);
+    padding: 1.5px 5px; border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  h3.sub {
+    font-family: var(--font-display);
+    font-size: 19px; font-weight: 600; letter-spacing: -0.3px;
+    margin: 34px 0 12px;
+  }
+
+  /* ============ CARDS ============ */
+  .ve-card {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    position: relative;
+    min-width: 0;
+  }
+  .ve-card--hero {
+    background: color-mix(in oklab, var(--primary) 5%, var(--card));
+    border-color: color-mix(in oklab, var(--border) 40%, var(--primary) 60%);
+    box-shadow: 0 4px 24px color-mix(in oklab, var(--primary) 10%, transparent);
+  }
+  .ve-card--recessed { background: var(--muted); border-color: transparent; }
+  .ve-card__label {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--primary);
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .ve-card__label::before {
+    content: ''; width: 8px; height: 8px; border-radius: 50%;
+    background: currentColor; flex-shrink: 0;
+  }
+  .ve-card__label--accent { color: var(--accent); }
+  .ve-card__label--secondary { color: var(--secondary); }
+  .ve-card__label--success { color: var(--success); }
+  .ve-card__label--warning { color: var(--warning); }
+  .ve-card__label--destructive { color: var(--destructive); }
+  .ve-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+  .ve-card p { font-size: 13.5px; line-height: 1.6; color: var(--muted-foreground); }
+  .ve-card p + p { margin-top: 10px; }
+  .ve-card strong { color: var(--foreground); font-weight: 600; }
+  .ve-card .node-list { margin-top: 10px; }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+  }
+  .card-grid > * { min-width: 0; }
+  .card-grid--2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+
+  /* ============ KPI ============ */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+    gap: 14px;
+    margin-bottom: 8px;
+  }
+  .kpi-row > * { min-width: 0; }
+  .kpi-card {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+  }
+  .kpi-card__value {
+    font-family: var(--font-display);
+    font-size: 32px; font-weight: 600;
+    letter-spacing: -1px; line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    color: var(--primary);
+  }
+  .kpi-card__value.sm { font-size: 24px; }
+  .kpi-card__value small { font-size: 15px; letter-spacing: 0; color: var(--muted-foreground); }
+  .kpi-card__label {
+    font-family: var(--font-mono); font-size: 9.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1.4px;
+    color: var(--muted-foreground); margin-top: 8px;
+  }
+  .kpi-card__note { font-size: 12px; color: var(--muted-foreground); margin-top: 6px; line-height: 1.45; }
+
+  /* ============ LISTS ============ */
+  .node-list { list-style: none; padding: 0; margin: 0; font-size: 13.5px; line-height: 1.7; }
+  .node-list li { padding-left: 16px; position: relative; color: var(--muted-foreground); }
+  .node-list li + li { margin-top: 6px; }
+  .node-list li::before {
+    content: '\203A'; color: var(--primary); font-weight: 700;
+    position: absolute; left: 0;
+  }
+  .node-list strong { color: var(--foreground); font-weight: 600; }
+
+  /* ============ CODE ============ */
+  .code-file {
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--card);
+  }
+  .code-file + .code-file { margin-top: 16px; }
+  .code-file__header {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 16px;
+    background: var(--muted);
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted-foreground);
+    text-transform: uppercase; letter-spacing: 1px; font-weight: 600;
+  }
+  .code-file__body {
+    font-family: var(--font-mono);
+    font-size: 12.5px; line-height: 1.65;
+    padding: 16px 18px;
+    background: var(--code-bg);
+    white-space: pre-wrap; word-break: break-word;
+    overflow-x: auto;
+    color: var(--foreground);
+  }
+  .code-file__body--wide { white-space: pre; word-break: normal; font-size: 11.5px; }
+  .kw  { color: var(--primary); font-weight: 600; }
+  .fn  { color: var(--accent); }
+  .str { color: var(--success); }
+  .cm  { color: var(--muted-foreground); font-style: italic; }
+  .num { color: var(--warning); }
+  .hi  { background: var(--primary-dim); border-radius: 3px; padding: 0 2px; font-weight: 600; }
+
+  /* ============ TABLE ============ */
+  .table-wrap {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.55; }
+  .data-table th {
+    background: var(--muted);
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.1px;
+    color: var(--muted-foreground);
+    text-align: left; padding: 11px 16px;
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+  }
+  .data-table td {
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top; color: var(--foreground);
+  }
+  .data-table td.wide { min-width: 240px; }
+  .data-table td.nowrap { white-space: nowrap; }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .data-table small { display: block; color: var(--muted-foreground); font-size: 11.5px; margin-top: 3px; }
+  .data-table code {
+    font-family: var(--font-mono); font-size: 11px;
+    background: var(--code-bg); border: 1px solid var(--border);
+    padding: 1px 5px; border-radius: 3px;
+  }
+  .table-caption {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted-foreground); margin-top: 10px;
+  }
+
+  .status {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+    letter-spacing: 0.6px;
+    padding: 3px 9px; border-radius: 5px; white-space: nowrap;
+  }
+  .status--must { background: var(--destructive-dim); color: var(--destructive); }
+  .status--should { background: var(--warning-dim); color: var(--warning); }
+  .status--may { background: var(--secondary-dim); color: var(--secondary); }
+  .status--ok { background: var(--success-dim); color: var(--success); }
+  .status--info { background: var(--primary-dim); color: var(--primary); }
+
+  /* ============ PKT MARKERS ============ */
+  .pkts {
+    display: inline-flex; gap: 3px;
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  }
+  .pkts i {
+    font-style: normal;
+    width: 17px; height: 17px; line-height: 17px;
+    text-align: center; border-radius: 4px;
+    background: var(--muted); color: var(--muted-foreground);
+    opacity: 0.4;
+  }
+  .pkts i.on { background: var(--primary-dim); color: var(--primary); opacity: 1; }
+  .pkts i.half { background: var(--warning-dim); color: var(--warning); opacity: 1; }
+
+  /* ============ BITFIELD ============ */
+  .bitfield {
+    display: flex; flex-wrap: wrap; gap: 5px;
+    margin: 0 0 6px;
+  }
+  .bitcell {
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 9px;
+    background: var(--card);
+    font-family: var(--font-mono);
+    text-align: center;
+    flex: 1 1 auto; min-width: 0;
+  }
+  .bitcell b { display: block; font-size: 12.5px; font-weight: 700; color: var(--foreground); white-space: nowrap; }
+  .bitcell span { display: block; font-size: 9px; letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted-foreground); margin-top: 3px; white-space: nowrap; }
+  .bitcell--fixed { background: var(--muted); border-color: transparent; }
+  .bitcell--type  { background: var(--primary-dim); border-color: color-mix(in oklab, var(--primary) 45%, transparent); }
+  .bitcell--type b { color: var(--primary); }
+  .bitcell--prot  { background: var(--accent-dim); border-color: color-mix(in oklab, var(--accent) 45%, transparent); }
+  .bitcell--prot b { color: var(--accent); }
+  .bitcell--var   { background: var(--secondary-dim); border-color: color-mix(in oklab, var(--secondary) 45%, transparent); }
+  .bitcell--var b { color: var(--secondary); }
+
+  /* ============ SIZE BARS ============ */
+  .sizebar { display: grid; grid-template-columns: minmax(120px, 200px) 1fr; gap: 10px 14px; align-items: center; }
+  .sizebar__label {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+    color: var(--muted-foreground); text-align: right; line-height: 1.3;
+  }
+  .sizebar__track { background: var(--muted); border-radius: 6px; height: 30px; overflow: hidden; }
+  .sizebar__fill {
+    height: 100%; border-radius: 6px;
+    display: flex; align-items: center; padding: 0 10px;
+    font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+    white-space: nowrap; min-width: 62px;
+  }
+  .sizebar__fill--floor {
+    background: var(--primary-dim);
+    border: 1.5px solid color-mix(in oklab, var(--primary) 55%, transparent);
+    color: var(--primary);
+  }
+  .sizebar__fill--path {
+    background: var(--success-dim);
+    border: 1.5px solid color-mix(in oklab, var(--success) 55%, transparent);
+    color: var(--success);
+  }
+  .sizebar__fill--max {
+    background: var(--accent-dim);
+    border: 1.5px solid color-mix(in oklab, var(--accent) 55%, transparent);
+    color: var(--accent);
+  }
+  @media (max-width: 620px) {
+    .sizebar { grid-template-columns: 1fr; }
+    .sizebar__label { text-align: left; }
+  }
+
+  /* ============ CALLOUT ============ */
+  .callout {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-left: 4px solid var(--primary);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 16px 20px;
+    font-size: 13.5px; line-height: 1.6;
+    color: var(--muted-foreground);
+    margin: 22px 0;
+  }
+  .callout strong { color: var(--foreground); }
+  .callout__title {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--primary); margin-bottom: 7px;
+  }
+  .callout--warning { border-left-color: var(--warning); }
+  .callout--warning .callout__title { color: var(--warning); }
+  .callout--danger { border-left-color: var(--destructive); }
+  .callout--danger .callout__title { color: var(--destructive); }
+  .callout--accent { border-left-color: var(--accent); }
+  .callout--accent .callout__title { color: var(--accent); }
+  .callout--success { border-left-color: var(--success); }
+  .callout--success .callout__title { color: var(--success); }
+  .callout ul { padding-left: 1.4em; margin: 8px 0 0; }
+  .callout li + li { margin-top: 5px; }
+
+  /* ============ MERMAID ============ */
+  .diagram-shell { position: relative; margin: 8px 0 4px; }
+  .diagram-shell__hint {
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--muted-foreground); margin-bottom: 8px; opacity: 0.75;
+  }
+  .mermaid-wrap {
+    position: relative;
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 20px;
+    overflow: auto;
+    display: flex; justify-content: center; align-items: center;
+    min-height: 380px;
+    cursor: grab;
+  }
+  .mermaid-wrap.is-panning { cursor: grabbing; user-select: none; }
+  .zoom-controls {
+    position: absolute; top: 8px; right: 8px;
+    display: flex; gap: 2px; z-index: 10;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px; padding: 2px;
+  }
+  .zoom-controls button {
+    width: 28px; height: 28px; border: none;
+    background: transparent; color: var(--muted-foreground);
+    font-family: var(--font-mono); font-size: 13px;
+    cursor: pointer; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .zoom-controls button:hover { background: var(--muted); color: var(--foreground); }
+  .mermaid-viewport { position: relative; overflow: hidden; width: 100%; height: 100%; min-height: 300px; }
+  .mermaid-canvas { position: absolute; top: 0; left: 0; }
+  .zoom-label {
+    font-family: var(--font-mono); font-size: 9.5px;
+    color: var(--muted-foreground); padding: 0 6px; white-space: nowrap;
+    display: flex; align-items: center;
+  }
+  .mermaid .nodeLabel { font-family: var(--font-sans) !important; font-size: 15px !important; }
+  .mermaid .edgeLabel { font-family: var(--font-mono) !important; font-size: 12px !important; }
+  .mermaid .node rect, .mermaid .node polygon { stroke-width: 1.5px !important; }
+
+  .diagram-caption {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted-foreground); margin-top: 10px;
+  }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; }
+  .legend-item {
+    display: flex; align-items: center; gap: 7px;
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--muted-foreground);
+  }
+  .legend-swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+  /* ============ COLLAPSIBLE ============ */
+  details.collapsible {
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--card);
+  }
+  details.collapsible + details.collapsible { margin-top: 12px; }
+  details.collapsible summary {
+    padding: 14px 20px;
+    background: var(--card);
+    font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+    cursor: pointer; list-style: none;
+    display: flex; align-items: center; gap: 10px;
+    color: var(--foreground);
+    transition: background 0.15s ease;
+  }
+  details.collapsible summary:hover { background: var(--muted); }
+  details.collapsible summary::-webkit-details-marker { display: none; }
+  details.collapsible summary::before {
+    content: '\25B8'; font-size: 11px; color: var(--primary);
+    transition: transform 0.15s ease; flex-shrink: 0;
+  }
+  details.collapsible[open] summary::before { transform: rotate(90deg); }
+  .collapsible__body {
+    padding: 18px 20px;
+    border-top: 1px solid var(--border);
+    font-size: 13.5px; line-height: 1.65;
+    color: var(--muted-foreground);
+  }
+  .collapsible__body p + p { margin-top: 12px; }
+  .collapsible__body strong { color: var(--foreground); }
+
+  .stack > * + * { margin-top: 16px; }
+  .footnote {
+    font-size: 12px; color: var(--muted-foreground);
+    margin-top: 12px; line-height: 1.55;
+  }
+
+  footer.page-foot {
+    margin-top: 72px; padding-top: 24px;
+    border-top: 1.5px solid var(--border);
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted-foreground);
+    display: flex; flex-wrap: wrap; gap: 8px 20px;
+  }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 1000px) {
+    body { padding: 0 20px 40px; }
+    .wrap { grid-template-columns: 1fr; }
+    .toc {
+      position: sticky; top: 0; z-index: 200;
+      max-height: none;
+      display: flex; gap: 4px; align-items: center;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      background: var(--background);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px; margin: 0 -20px;
+      grid-row: auto;
+    }
+    .toc::-webkit-scrollbar { display: none; }
+    .toc-title { display: none; }
+    .toc a {
+      white-space: nowrap; flex-shrink: 0;
+      border-left: none; border-bottom: 2px solid transparent;
+      border-radius: 4px 4px 0 0; padding: 6px 10px; font-size: 10.5px;
+    }
+    .toc a.active { border-left: none; border-bottom-color: var(--primary); }
+    .main { padding-top: 24px; }
+    .sec-head { scroll-margin-top: 56px; margin-top: 52px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav class="toc" id="toc">
+    <div class="toc-title">Contents</div>
+    <a href="#s1">1. What QUIC is</a>
+    <a href="#s2">2. The handshake</a>
+    <a href="#s3">3. Packets &amp; frames</a>
+    <a href="#s4">4. Frame reference</a>
+    <a href="#s5">5. Streams</a>
+    <a href="#s6">6. Flow control</a>
+    <a href="#s7">7. Connection IDs &amp; migration</a>
+    <a href="#s8">8. Address validation</a>
+    <a href="#s9">9. Termination &amp; errors</a>
+    <a href="#s10">10. Wire encoding</a>
+  </nav>
+
+  <div class="main">
+
+    <div class="eyebrow animate" style="--i:0">
+      <span>RFC 9000</span><span class="sep">/</span>
+      <span>Standards Track</span><span class="sep">/</span>
+      <span>May 2021</span>
+    </div>
+
+    <h1 class="animate" style="--i:1">QUIC</h1>
+
+    <p class="standfirst animate" style="--i:2">
+      A connection-oriented transport built on UDP that folds in the jobs TCP and TLS used to split between them.
+      One handshake negotiates both crypto and transport. The connection is identified by a
+      <strong>connection ID rather than an IP&nbsp;address</strong>, so it survives the network changing underneath it.
+      And almost every header byte is encrypted, which is as much an <strong>anti-ossification measure</strong> as a
+      privacy one — middleboxes cannot freeze a field they cannot read.
+    </p>
+
+    <div class="meta-strip animate" style="--i:3">
+      <span class="meta-chip">J. Iyengar (ed.) <strong>Fastly</strong></span>
+      <span class="meta-chip">M. Thomson (ed.) <strong>Mozilla</strong></span>
+      <span class="meta-chip">Version <strong>0x00000001</strong></span>
+      <span class="meta-chip">ISSN <strong>2070-1721</strong></span>
+    </div>
+
+    <div class="ve-card ve-card--hero animate" style="--i:4">
+      <div class="ve-card__label">The whole spec in five lines</div>
+      <ul class="node-list">
+        <li>An application sees <strong>independent ordered byte streams</strong>. Loss on one stream does not stall the others — the head-of-line blocking that TCP forces on any multiplexed protocol above it.</li>
+        <li>A UDP datagram carries one or more <strong>packets</strong>; each packet's payload is a sequence of <strong>frames</strong>. Frames carry everything: stream data, acknowledgements, flow-control limits, connection IDs, close signals.</li>
+        <li>The handshake is TLS 1.3, carried in <code>CRYPTO</code> frames rather than TLS records, and it negotiates <strong>transport parameters in the same round trip</strong> as the keys.</li>
+        <li>Every packet is authenticated in full and encrypted as far as is practical. Only a handful of fields are readable on the wire, and <a href="https://www.rfc-editor.org/rfc/rfc8999">RFC 8999</a> pins exactly which ones stay stable across versions.</li>
+        <li>Connection IDs decouple the connection from the 4-tuple. A client can change address mid-connection, or be NAT-rebound, and <strong>keep the connection</strong> after a challenge-response proves the new path works.</li>
+      </ul>
+    </div>
+
+    <div class="kpi-row" style="margin-top:28px">
+      <div class="kpi-card" style="--i:0">
+        <div class="kpi-card__value">1</div>
+        <div class="kpi-card__label">RTT to first app byte</div>
+        <p class="kpi-card__note">Zero on resumption, using 0-RTT packets.</p>
+      </div>
+      <div class="kpi-card" style="--i:1">
+        <div class="kpi-card__value">20</div>
+        <div class="kpi-card__label">Frame types</div>
+        <p class="kpi-card__note">Occupying type values <code>0x00</code>&ndash;<code>0x1e</code>.</p>
+      </div>
+      <div class="kpi-card" style="--i:2">
+        <div class="kpi-card__value">3</div>
+        <div class="kpi-card__label">Packet number spaces</div>
+        <p class="kpi-card__note">Initial, Handshake, Application. Each has its own keys.</p>
+      </div>
+      <div class="kpi-card" style="--i:3">
+        <div class="kpi-card__value">1200 <small>B</small></div>
+        <div class="kpi-card__label">Minimum datagram</div>
+        <p class="kpi-card__note">Below this, QUIC MUST NOT be used at all.</p>
+      </div>
+      <div class="kpi-card" style="--i:4">
+        <div class="kpi-card__value sm">3&times;</div>
+        <div class="kpi-card__label">Anti-amplification limit</div>
+        <p class="kpi-card__note">Bytes a server may send to an unvalidated address.</p>
+      </div>
+    </div>
+
+    <!-- ============ 1 ============ -->
+    <div class="sec-head" id="s1">
+      <span class="sec-head__num">01</span>
+      <span class="sec-head__title">What QUIC actually is</span>
+    </div>
+
+    <p class="sec-intro">
+      QUIC is not "TCP over UDP". It is a transport that takes four problems the TCP+TLS stack cannot fix without
+      breaking deployed middleboxes, and fixes them by moving the whole transport into userspace behind an
+      encrypted envelope. UDP is the delivery mechanism, chosen "to better facilitate deployment in existing
+      systems and networks" (§1) — nothing more.
+    </p>
+
+    <div class="card-grid animate" style="--i:0">
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--destructive">Problem 1</div>
+        <h3>Head-of-line blocking</h3>
+        <p>
+          TCP delivers <strong>one</strong> ordered byte stream. HTTP/2 multiplexes many logical streams inside it, so a
+          single lost segment stalls delivery of every stream behind it. QUIC's streams are separately ordered:
+          <strong>loss on stream 4 does not hold up stream 8</strong>.
+        </p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--accent">Problem 2</div>
+        <h3>Stacked handshakes</h3>
+        <p>
+          TCP's SYN exchange then TLS's own handshake are sequential, because TLS cannot start until the connection
+          exists. QUIC merges them — <strong>one exchange settles keys, transport parameters, and the application
+          protocol</strong> (ALPN, which §7 makes mandatory).
+        </p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--warning">Problem 3</div>
+        <h3>Ossification</h3>
+        <p>
+          TCP headers are in cleartext, so middleboxes came to depend on them, and the header can no longer change.
+          QUIC "authenticates the entirety of each packet and encrypts as much of each packet as is practical" —
+          <strong>a field nobody can read is a field nobody can freeze</strong>.
+        </p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--secondary">Problem 4</div>
+        <h3>Address pinning</h3>
+        <p>
+          A TCP connection <em>is</em> its 4-tuple; change the IP and it is gone. QUIC packets carry a
+          <strong>connection ID</strong> chosen by the receiver, so a Wi-Fi-to-cellular switch or a NAT rebinding
+          becomes a path change rather than a connection failure.
+        </p>
+      </div>
+    </div>
+
+    <h3 class="sub">One protocol, three documents</h3>
+
+    <p class="sec-intro">
+      RFC 9000 defines streams, connections, packets, frames, and the state machines. It deliberately leaves out two
+      things, because they change at a different pace than the wire format does.
+    </p>
+
+    <div class="table-wrap animate" style="--i:1">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>Document</th><th>Covers</th><th class="wide">Why it is separate</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="nowrap"><a href="https://www.rfc-editor.org/rfc/rfc9000"><strong>RFC 9000</strong></a><br><small>this document</small></td>
+              <td>Transport</td>
+              <td class="wide">Streams, flow control, connections, migration, packets, frames, errors. The protocol's shape.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><a href="https://www.rfc-editor.org/rfc/rfc9001"><strong>RFC 9001</strong></a></td>
+              <td>TLS mapping</td>
+              <td class="wide">How the TLS 1.3 handshake produces QUIC's packet-protection and header-protection keys, and how key updates work. QUIC uses TLS's handshake but not its record layer.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><a href="https://www.rfc-editor.org/rfc/rfc9002"><strong>RFC 9002</strong></a></td>
+              <td>Loss &amp; congestion</td>
+              <td class="wide">Loss detection and an exemplary congestion controller. Explicitly swappable — RFC 9000 only requires <em>that</em> you have one, not which.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><a href="https://www.rfc-editor.org/rfc/rfc8999"><strong>RFC 8999</strong></a></td>
+              <td>Invariants</td>
+              <td class="wide">The tiny set of fields every QUIC version must keep in the same place — header form bit, version, connection ID lengths and values. Everything else is fair game for a future version to redefine.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="callout callout--accent animate" style="--i:2">
+      <div class="callout__title">One asymmetry to keep in mind</div>
+      <strong>Only clients migrate.</strong> §9 restricts connection migration to new <em>client</em> addresses, with
+      one exception: a server can advertise a <code>preferred_address</code> and have the client move there after the
+      handshake (§9.6). Servers never send non-probing packets to a client address until they have seen a non-probing
+      packet <em>from</em> it — otherwise an attacker could redirect a server's traffic at a victim by spoofing.
+    </div>
+
+    <!-- ============ 2 ============ -->
+    <div class="sec-head" id="s2">
+      <span class="sec-head__num">02</span>
+      <span class="sec-head__title">The handshake</span>
+    </div>
+
+    <p class="sec-intro">
+      QUIC carries the TLS 1.3 handshake inside <code>CRYPTO</code> frames. TLS's own record layer is unused — QUIC
+      does the framing, the reliability, and the encryption itself. What TLS supplies is the key exchange, the
+      authentication, and a transport-parameters extension that rides along in the same messages.
+    </p>
+
+    <p class="sec-intro">
+      §7 lists what the cryptographic handshake must deliver: an authenticated key exchange where the server is always
+      authenticated and the client optionally is; keys that are distinct per connection; an authenticated exchange of
+      both endpoints' transport parameters, <strong>with confidentiality for the server's</strong>; and an
+      authenticated application-protocol negotiation.
+    </p>
+
+    <section class="diagram-shell animate" style="--i:0">
+      <p class="diagram-shell__hint">Ctrl/Cmd + wheel to zoom. Drag to pan. Double-click to fit. ⛶ opens full size.</p>
+      <div class="mermaid-wrap">
+        <div class="zoom-controls">
+          <button data-action="zoom-out" title="Zoom out">&minus;</button>
+          <button data-action="zoom-in" title="Zoom in">+</button>
+          <button data-action="zoom-fit" title="Fit">⤢</button>
+          <button data-action="zoom-one" title="100%">1:1</button>
+          <button data-action="zoom-expand" title="Open full size">⛶</button>
+          <span class="zoom-label">Loading...</span>
+        </div>
+        <div class="mermaid-viewport"><div class="mermaid mermaid-canvas"></div></div>
+      </div>
+      <script type="text/plain" class="diagram-source">
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+
+    Note over C,S: Initial packet number space — keys derived from the client's<br/>first Destination Connection ID, so anyone on path can read them
+    C->>S: Initial[0]: CRYPTO[ClientHello]
+    Note right of C: datagram padded to ≥ 1200 bytes (§14.1)
+
+    Note over C,S: Handshake space — real TLS keys
+    S->>C: Initial[0]: CRYPTO[ServerHello], ACK[0]
+    S->>C: Handshake[0]: CRYPTO[EE, CERT, CV, FIN]
+    S->>C: 1-RTT[0]: STREAM[1, ...]
+    Note left of S: 0.5-RTT data — server may send before<br/>the client has finished authenticating
+
+    C->>S: Initial[1]: ACK[0]
+    C->>S: Handshake[0]: CRYPTO[FIN], ACK[0]
+    C->>S: 1-RTT[0]: STREAM[0, ...], ACK[0]
+
+    S->>C: Handshake[1]: ACK[0]
+    S->>C: 1-RTT[1]: HANDSHAKE_DONE, STREAM[3, ...], ACK[0]
+    Note over C,S: Handshake confirmed. Migration now permitted.<br/>Handshake keys and packet number space discarded.
+
+    C-->>S: 1-RTT
+    S-->>C: 1-RTT
+      </script>
+      <p class="diagram-caption">§7.1, Figure 5 — the 1-RTT handshake. As few as four UDP datagrams, because packets from different number spaces coalesce into one datagram.</p>
+    </section>
+
+    <h3 class="sub">Three packet number spaces</h3>
+
+    <p class="sec-intro">
+      This is the structural idea that makes the handshake work. Packets are partitioned into three spaces, each with
+      its own keys, its own packet numbers starting at 0, and its own acknowledgements. An Initial packet can only be
+      acknowledged by an Initial packet.
+    </p>
+
+    <div class="card-grid card-grid--2 animate" style="--i:1">
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--warning">Initial space</div>
+        <h3>Initial packets</h3>
+        <p>
+          Protected with keys derived from the client's first Destination Connection ID — a value visible to anyone
+          on the path. This is <strong>obfuscation, not confidentiality</strong>: it lets a receiver detect tampering
+          and keeps middleboxes from parsing, but it is not a secret.
+        </p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--secondary">Handshake space</div>
+        <h3>Handshake packets</h3>
+        <p>
+          Protected with real TLS handshake keys. §8.1 notes the consequence: successfully processing a Handshake
+          packet <strong>implicitly validates the peer's address</strong>, because producing one requires having
+          received the peer's Initial.
+        </p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--success">Application space</div>
+        <h3>0-RTT and 1-RTT packets</h3>
+        <p>
+          These share a number space, deliberately: it "makes loss recovery algorithms easier to implement between
+          the two packet types". A server acknowledges 0-RTT data in 1-RTT packets, and the client's 1-RTT packets
+          simply continue the same numbering.
+        </p>
+      </div>
+    </div>
+
+    <div class="callout animate" style="--i:2">
+      <div class="callout__title">CRYPTO offsets restart per space</div>
+      Each space has its own <code>CRYPTO</code> frame offset sequence starting at zero. So "offset 0" in the Initial
+      space and "offset 0" in the Handshake space are different bytes of the TLS handshake. Unlike stream data,
+      CRYPTO frames are <strong>not flow controlled</strong> — the corresponding backstop is
+      <code>CRYPTO_BUFFER_EXCEEDED</code> (§20.1), which closes the connection when a peer sends more handshake data
+      than the receiver can hold.
+    </div>
+
+    <h3 class="sub">0-RTT and the price of it</h3>
+
+    <p class="sec-intro">
+      A client that has connected before can send application data in its very first flight, in 0-RTT packets. Two
+      constraints follow from that, both in §7.4.1.
+    </p>
+
+    <div class="card-grid animate" style="--i:3">
+      <div class="ve-card ve-card--recessed">
+        <h3>Remembered parameters</h3>
+        <p>
+          The client must use the transport parameters it <strong>remembered from the previous connection</strong>, since
+          the new ones have not arrived yet. A server that accepts 0-RTT must not reduce most limits below what it
+          previously advertised — doing so is a <code>PROTOCOL_VIOLATION</code>.
+        </p>
+      </div>
+      <div class="ve-card ve-card--recessed">
+        <h3>No replay protection</h3>
+        <p>
+          0-RTT data can be captured and replayed by an attacker; QUIC cannot prevent it. §21 pushes the problem up
+          the stack: only the <strong>application protocol</strong> knows which of its operations are safe to repeat.
+        </p>
+      </div>
+    </div>
+
+    <p class="sec-intro" style="margin-top:28px">
+      Note also what <code>HANDSHAKE_DONE</code> is for. It is sent by the server only, in a 1-RTT packet, and it tells
+      the client the handshake is confirmed. Until that point the client must not migrate (§9), and neither side can
+      discard the Handshake keys.
+    </p>
+
+    <!-- ============ 3 ============ -->
+    <div class="sec-head" id="s3">
+      <span class="sec-head__num">03</span>
+      <span class="sec-head__title">Packets and frames</span>
+    </div>
+
+    <p class="sec-intro">
+      Three levels of nesting, and it is worth being precise about them because the spec's language depends on the
+      distinction. A <strong>UDP datagram</strong> carries one or more QUIC <strong>packets</strong>. Each packet has a
+      header and an encrypted payload. That payload, once decrypted, is a sequence of <strong>frames</strong>. Frames
+      never span packets.
+    </p>
+
+    <section class="diagram-shell animate" style="--i:0">
+      <p class="diagram-shell__hint">Ctrl/Cmd + wheel to zoom. Drag to pan. Double-click to fit.</p>
+      <div class="mermaid-wrap">
+        <div class="zoom-controls">
+          <button data-action="zoom-out" title="Zoom out">&minus;</button>
+          <button data-action="zoom-in" title="Zoom in">+</button>
+          <button data-action="zoom-fit" title="Fit">⤢</button>
+          <button data-action="zoom-one" title="100%">1:1</button>
+          <button data-action="zoom-expand" title="Open full size">⛶</button>
+          <span class="zoom-label">Loading...</span>
+        </div>
+        <div class="mermaid-viewport"><div class="mermaid mermaid-canvas"></div></div>
+      </div>
+      <script type="text/plain" class="diagram-source">
+flowchart TD
+    D["UDP datagram<br/>≥ 1200 bytes when it carries an Initial"]
+
+    D --> P1["Initial packet<br/><i>long header · has Length field</i>"]
+    D --> P2["Handshake packet<br/><i>long header · has Length field</i>"]
+    D --> P3["1-RTT packet<br/><i>short header · no Length — must be last</i>"]
+
+    P1 --> Y1["encrypted payload"]
+    P2 --> Y2["encrypted payload"]
+    P3 --> Y3["encrypted payload"]
+
+    Y1 --> F1["CRYPTO[ClientHello]"]
+    Y1 --> F2["PADDING × n"]
+    Y2 --> F3["CRYPTO[FIN]"]
+    Y2 --> F4["ACK"]
+    Y3 --> F5["STREAM[0, ...]"]
+    Y3 --> F6["MAX_DATA"]
+    Y3 --> F7["ACK"]
+
+    classDef pkt fill:#ede9fe,stroke:#6d28d9,color:#2e1065
+    classDef payload fill:#fef3e2,stroke:#d97706,color:#451a03
+    classDef frame fill:#d8f3f0,stroke:#0f766e,color:#0f2e2c
+    class P1,P2,P3 pkt
+    class Y1,Y2,Y3 payload
+    class F1,F2,F3,F4,F5,F6,F7 frame
+      </script>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--primary)"></div> packets — each independently protected</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--accent)"></div> payload — AEAD-protected</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--secondary)"></div> frames — the actual protocol content</div>
+      </div>
+      <p class="diagram-caption">§12.2 — coalescing. Packets from different number spaces travel in one datagram, cutting the handshake to about four round-trip-worth of datagrams.</p>
+    </section>
+
+    <div class="callout callout--warning animate" style="--i:1">
+      <div class="callout__title">Why the short header has no Length field</div>
+      Long headers carry an explicit <code>Length</code>, which is what makes coalescing work: a receiver can find where
+      one packet ends and the next begins. The short header has no such field — a 1-RTT packet runs to the end of the
+      datagram. <strong>So a 1-RTT packet can only ever be the last packet in a datagram.</strong>
+    </div>
+
+    <h3 class="sub">Byte 0</h3>
+
+    <p class="sec-intro">
+      Everything that distinguishes one packet type from another lives in the first byte. Only the top two bits are
+      readable by an observer; the rest is covered by header protection (RFC 9001 §5.4) and is unreadable without keys.
+    </p>
+
+    <div class="ve-card animate" style="--i:2">
+      <div class="ve-card__label">Long header — Initial, 0-RTT, Handshake, Retry</div>
+      <div class="bitfield">
+        <div class="bitcell bitcell--fixed"><b>1</b><span>form</span></div>
+        <div class="bitcell bitcell--fixed"><b>1</b><span>fixed bit</span></div>
+        <div class="bitcell bitcell--type"><b>2 bits</b><span>packet type</span></div>
+        <div class="bitcell bitcell--prot"><b>4 bits</b><span>type-specific</span></div>
+      </div>
+      <p style="font-size:13px">
+        Then a 32-bit <strong>Version</strong>, and both connection IDs each preceded by an explicit 8-bit length
+        (max 20 bytes in v1). Those fields are the RFC 8999 invariants — the only part of a QUIC packet a future
+        version is not allowed to move.
+      </p>
+    </div>
+
+    <div class="ve-card animate" style="--i:3; margin-top:16px">
+      <div class="ve-card__label ve-card__label--success">Short header — 1-RTT only</div>
+      <div class="bitfield">
+        <div class="bitcell bitcell--fixed"><b>0</b><span>form</span></div>
+        <div class="bitcell bitcell--fixed"><b>1</b><span>fixed bit</span></div>
+        <div class="bitcell bitcell--var"><b>1</b><span>spin bit</span></div>
+        <div class="bitcell bitcell--prot"><b>2</b><span>reserved</span></div>
+        <div class="bitcell bitcell--prot"><b>1</b><span>key phase</span></div>
+        <div class="bitcell bitcell--prot"><b>2</b><span>pn length</span></div>
+      </div>
+      <p style="font-size:13px">
+        Then the Destination Connection ID with <strong>no length prefix</strong> — the receiver chose that connection ID,
+        so it already knows how long it is. A load balancer routing on connection ID has to agree a fixed length, or an
+        encoding that carries the length in a fixed prefix.
+      </p>
+    </div>
+
+    <div class="callout callout--accent animate" style="--i:4">
+      <div class="callout__title">The spin bit is deliberate leakage</div>
+      One bit, in the clear, that flips once per round trip so a passive observer can measure RTT (§17.4). It is
+      optional, and endpoints that implement it should disable it on a random fraction of connections — otherwise
+      "always off" itself becomes a fingerprint. It exists because operators needed <em>something</em> measurable after
+      TCP's timestamps disappeared behind encryption.
+    </div>
+
+    <h3 class="sub">Packet types</h3>
+
+    <div class="table-wrap animate" style="--i:5">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>Packet</th><th>Header</th><th>Space</th><th class="wide">Role</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="nowrap"><code>Initial</code><br><small>type 0x00</small></td>
+              <td><span class="status status--info">long</span></td>
+              <td class="nowrap">Initial</td>
+              <td class="wide">Carries the first CRYPTO frames and the address-validation <code>Token</code>. Obfuscation-only protection.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0-RTT</code><br><small>type 0x01</small></td>
+              <td><span class="status status--info">long</span></td>
+              <td class="nowrap">Application</td>
+              <td class="wide">Application data sent before the handshake completes, using a resumption secret. No <code>ACK</code> frames — the client has nothing to acknowledge yet.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>Handshake</code><br><small>type 0x02</small></td>
+              <td><span class="status status--info">long</span></td>
+              <td class="nowrap">Handshake</td>
+              <td class="wide">The rest of the TLS handshake, under real keys. Receiving one validates the sender's address.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>Retry</code><br><small>type 0x03</small></td>
+              <td><span class="status status--info">long</span></td>
+              <td class="nowrap">&mdash;</td>
+              <td class="wide"><strong>No frames, no packet number.</strong> Carries a token and an integrity tag. Forces the client to prove it can receive at its claimed address.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>1-RTT</code></td>
+              <td><span class="status status--ok">short</span></td>
+              <td class="nowrap">Application</td>
+              <td class="wide">Everything after the handshake. All frame types are permitted here.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>Version Negotiation</code></td>
+              <td><span class="status status--may">long</span></td>
+              <td class="nowrap">&mdash;</td>
+              <td class="wide"><strong>No frames, no packet number, version field 0x00000000.</strong> A server's reply when it does not speak the version asked for. Unauthenticated — §6.2 warns it can be forged, so a client must not act on it if it has already processed a real packet.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>Stateless Reset</code></td>
+              <td><span class="status status--should">short-ish</span></td>
+              <td class="nowrap">&mdash;</td>
+              <td class="wide">Not a packet type at all — a datagram of random-looking bytes ending in a 16-byte token, shaped to be indistinguishable from a 1-RTT packet. See §09.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-caption">§17.2 Table 5, plus the frameless packets from §17.2.1, §17.2.5, and §10.3.</p>
+    </div>
+
+    <h3 class="sub">Packet numbers</h3>
+
+    <div class="ve-card animate" style="--i:6">
+      <ul class="node-list">
+        <li>A 62-bit integer, but encoded in the header on <strong>1 to 4 bytes</strong>: the sender transmits only enough low bits for the receiver to reconstruct the full value unambiguously, given what it has already acknowledged.</li>
+        <li><strong>Never reused within a space.</strong> The packet number feeds the AEAD nonce, so reuse would be a nonce reuse. Retransmitting lost data means putting the same frames into a <em>new</em> packet with a <em>new</em> number.</li>
+        <li>Must increase by at least one per packet, but gaps are legal — and useful, since they make it harder to correlate a sender's packets across paths.</li>
+        <li>If a sender ever reaches 2<sup>62</sup>&minus;1, it MUST close the connection <em>without</em> sending <code>CONNECTION_CLOSE</code>, since sending it would need one more number.</li>
+      </ul>
+    </div>
+
+    <div class="callout callout--success animate" style="--i:7">
+      <div class="callout__title">This is the retransmission model</div>
+      QUIC never retransmits a packet. It retransmits the <em>frames</em> that were in a lost packet, repackaged into a
+      new packet. That is why §12.4 can say "all frames are idempotent" — receiving one twice must be harmless, because
+      the sender has no way to guarantee it did not already arrive.
+    </div>
+
+    <!-- ============ 4 ============ -->
+    <div class="sec-head" id="s4">
+      <span class="sec-head__num">04</span>
+      <span class="sec-head__title">Frame reference</span>
+    </div>
+
+    <p class="sec-intro">
+      Twenty frame types across values <code>0x00</code>&ndash;<code>0x1e</code>. Several occupy a range rather than a
+      single value, because low bits of the type carry flags — <code>STREAM</code> uses three of them to say which
+      optional fields are present.
+    </p>
+
+    <p class="sec-intro">
+      The <strong>Pkts</strong> column shows which packet types a frame may appear in, and the <strong>Spec</strong>
+      column flags the four properties that change how the frame is treated by acknowledgement, congestion control,
+      path probing, and flow control.
+    </p>
+
+    <div class="table-wrap animate" style="--i:0">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>Type</th><th>Frame</th><th>Pkts</th><th>Spec</th><th class="wide">What it does</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="nowrap"><code>0x00</code></td><td class="nowrap"><strong>PADDING</strong></td>
+              <td><span class="pkts"><i class="on">I</i><i class="on">H</i><i class="on">0</i><i class="on">1</i></span></td>
+              <td><span class="status status--may">N P</span></td>
+              <td class="wide">A single zero byte with no content. Bulks a datagram up to 1200 bytes, and makes packet sizes less informative to an observer.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x01</code></td><td class="nowrap"><strong>PING</strong></td>
+              <td><span class="pkts"><i class="on">I</i><i class="on">H</i><i class="on">0</i><i class="on">1</i></span></td>
+              <td></td>
+              <td class="wide">No content either, but unlike PADDING it is ack-eliciting. Used to keep a connection alive, to check liveness, and to make a probe packet draw a response.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x02-03</code></td><td class="nowrap"><strong>ACK</strong></td>
+              <td><span class="pkts"><i class="on">I</i><i class="on">H</i><i>0</i><i class="on">1</i></span></td>
+              <td><span class="status status--may">N C</span></td>
+              <td class="wide">Acknowledges <em>ranges</em> of packet numbers, largest first, as gap/length pairs — so a sparse set costs little. Type <code>0x03</code> adds ECN counts. Carries an ACK Delay so the sender can subtract receiver-side delay from its RTT estimate.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x04</code></td><td class="nowrap"><strong>RESET_STREAM</strong></td>
+              <td><span class="pkts"><i>I</i><i>H</i><i class="on">0</i><i class="on">1</i></span></td>
+              <td></td>
+              <td class="wide">Abandons the sending half of a stream. Carries an application error code and the <strong>final size</strong>, so the receiver can still reconcile connection-level flow control.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x05</code></td><td class="nowrap"><strong>STOP_SENDING</strong></td>
+              <td><span class="pkts"><i>I</i><i>H</i><i class="on">0</i><i class="on">1</i></span></td>
+              <td></td>
+              <td class="wide">A request in the other direction: "stop sending on this stream". It is a request, not a reset — the peer responds with RESET_STREAM.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x06</code></td><td class="nowrap"><strong>CRYPTO</strong></td>
+              <td><span class="pkts"><i class="on">I</i><i class="on">H</i><i>0</i><i class="on">1</i></span></td>
+              <td></td>
+              <td class="wide">Handshake bytes with an offset, like a STREAM frame but with no stream ID and <strong>no flow control</strong>. Offsets restart at 0 in each packet number space.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x07</code></td><td class="nowrap"><strong>NEW_TOKEN</strong></td>
+              <td><span class="pkts"><i>I</i><i>H</i><i>0</i><i class="on">1</i></span></td>
+              <td></td>
+              <td class="wide">Server to client. A token the client can present on a <em>future</em> connection to skip address validation — the thing that makes 0-RTT safe to answer generously.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x08-0f</code></td><td class="nowrap"><strong>STREAM</strong></td>
+              <td><span class="pkts"><i>I</i><i>H</i><i class="on">0</i><i class="on">1</i></span></td>
+              <td><span class="status status--ok">F</span></td>
+              <td class="wide">The workhorse. Three low bits of the type are flags: OFF (an explicit offset is present), LEN (an explicit length is present), FIN (this is the last byte of the stream). A single frame can open, fill, and close a stream.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x10</code></td><td class="nowrap"><strong>MAX_DATA</strong></td>
+              <td><span class="pkts"><i>I</i><i>H</i><i class="on">0</i><i class="on">1</i></span></td>
+              <td></td>
+              <td class="wide">Raises the connection-wide limit on bytes the peer may send, counted across all streams.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x11</code></td><td class="nowrap"><strong>MAX_STREAM_DATA</strong></td>
+              <td><span class="pkts"><i>I</i><i>H</i><i class="on">0</i><i class="on">1</i></span></td>
+              <td></td>
+              <td class="wide">Raises the limit on one stream. Both this and MAX_DATA carry an <strong>absolute</strong> value, not a delta — so a reordered or duplicated frame can never corrupt the limit.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x12-13</code></td><td class="nowrap"><strong>MAX_STREAMS</strong></td>
+              <td><span class="pkts"><i>I</i><i>H</i><i class="on">0</i><i class="on">1</i></span></td>
+              <td></td>
+              <td class="wide">Raises how many streams the peer may open. The low bit of the type picks bidirectional or unidirectional.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x14</code></td><td class="nowrap"><strong>DATA_BLOCKED</strong></td>
+              <td><span class="pkts"><i>I</i><i>H</i><i class="on">0</i><i class="on">1</i></span></td>
+              <td></td>
+              <td class="wide">"I have data to send and the connection limit is stopping me." Purely a signal — it does not request anything.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x15</code></td><td class="nowrap"><strong>STREAM_DATA_BLOCKED</strong></td>
+              <td><span class="pkts"><i>I</i><i>H</i><i class="on">0</i><i class="on">1</i></span></td>
+              <td></td>
+              <td class="wide">The same signal for a single stream.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x16-17</code></td><td class="nowrap"><strong>STREAMS_BLOCKED</strong></td>
+              <td><span class="pkts"><i>I</i><i>H</i><i class="on">0</i><i class="on">1</i></span></td>
+              <td></td>
+              <td class="wide">"I want to open a stream and the count limit is stopping me." Low bit picks the stream type.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x18</code></td><td class="nowrap"><strong>NEW_CONNECTION_ID</strong></td>
+              <td><span class="pkts"><i>I</i><i>H</i><i class="on">0</i><i class="on">1</i></span></td>
+              <td><span class="status status--may">P</span></td>
+              <td class="wide">Supplies the peer with another connection ID it may use, plus its sequence number, a Retire Prior To value, and a 16-byte stateless reset token.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x19</code></td><td class="nowrap"><strong>RETIRE_CONNECTION_ID</strong></td>
+              <td><span class="pkts"><i>I</i><i>H</i><i class="on">0</i><i class="on">1</i></span></td>
+              <td></td>
+              <td class="wide">"I will not use connection ID number <em>n</em> again." Frees the issuer's state and invalidates the associated reset token.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x1a</code></td><td class="nowrap"><strong>PATH_CHALLENGE</strong></td>
+              <td><span class="pkts"><i>I</i><i>H</i><i class="on">0</i><i class="on">1</i></span></td>
+              <td><span class="status status--may">P</span></td>
+              <td class="wide">Eight bytes that must be unpredictable. Sent on a path to test whether the peer is really reachable there.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x1b</code></td><td class="nowrap"><strong>PATH_RESPONSE</strong></td>
+              <td><span class="pkts"><i>I</i><i>H</i><i>0</i><i class="on">1</i></span></td>
+              <td><span class="status status--may">P</span></td>
+              <td class="wide">Echoes those eight bytes back. Must return on the <em>same</em> path the challenge arrived on, or the check proves nothing.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x1c-1d</code></td><td class="nowrap"><strong>CONNECTION_CLOSE</strong></td>
+              <td><span class="pkts"><i class="half">i</i><i class="half">h</i><i class="on">0</i><i class="on">1</i></span></td>
+              <td><span class="status status--may">N</span></td>
+              <td class="wide">Immediate close. <code>0x1c</code> carries a transport error code and the frame type that triggered it; <code>0x1d</code> carries an application error code. <strong>Only <code>0x1c</code> may appear in Initial or Handshake packets</strong> — before the handshake finishes, the application layer has no agreed error vocabulary.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x1e</code></td><td class="nowrap"><strong>HANDSHAKE_DONE</strong></td>
+              <td><span class="pkts"><i>I</i><i>H</i><i>0</i><i class="on">1</i></span></td>
+              <td></td>
+              <td class="wide">Server to client, once. Signals the handshake is confirmed; the client may now migrate and may discard Handshake keys.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-caption">
+        §12.4 Table 3. <strong>Pkts</strong> — I: Initial, H: Handshake, 0: 0-RTT, 1: 1-RTT; lowercase <em>ih</em> means only the <code>0x1c</code> variant.
+        <strong>Spec</strong> — N: not ack-eliciting · C: not counted toward bytes in flight · P: usable to probe a new path · F: flow controlled.
+      </p>
+    </div>
+
+    <div class="callout callout--danger animate" style="--i:1">
+      <div class="callout__title">Two rules with teeth</div>
+      A frame in a packet type it is not permitted in is a connection error of type <code>PROTOCOL_VIOLATION</code>. An
+      unknown frame type is <code>FRAME_ENCODING_ERROR</code>. And though frame types are variable-length integers,
+      they are the <em>one</em> place where the shortest encoding is mandatory — <code>0x4001</code> is a legal two-byte
+      encoding of the value 1, but a PING frame is always the single byte <code>0x01</code>.
+    </div>
+
+    <!-- ============ 5 ============ -->
+    <div class="sec-head" id="s5">
+      <span class="sec-head__num">05</span>
+      <span class="sec-head__title">Streams</span>
+    </div>
+
+    <p class="sec-intro">
+      A stream is an ordered byte sequence and nothing more — QUIC preserves no message boundaries, and STREAM frame
+      boundaries are explicitly not expected to survive retransmission. Streams are cheap: there is no open handshake,
+      and §2 notes that "a single STREAM frame can open, carry data for, and close a stream".
+    </p>
+
+    <h3 class="sub">Reading a stream ID</h3>
+
+    <p class="sec-intro">
+      A stream ID is a 62-bit integer, and its two low bits are not part of the number — they are the type. This is
+      what removes the need for any negotiation about who may use which IDs.
+    </p>
+
+    <div class="code-file animate" style="--i:0">
+      <div class="code-file__header"><span>§2.1 &mdash; the two low bits</span></div>
+      <pre class="code-file__body"><code><span class="cm">// bit 0x01 — who opened it</span>
+<span class="num">0</span> &rarr; client-initiated   <span class="cm">// even stream IDs</span>
+<span class="num">1</span> &rarr; server-initiated   <span class="cm">// odd stream IDs</span>
+
+<span class="cm">// bit 0x02 — which way it flows</span>
+<span class="num">0</span> &rarr; bidirectional
+<span class="num">1</span> &rarr; unidirectional
+
+<span class="cm">// so, four independent ID spaces, each starting at its own low value:</span>
+<span class="hi">0x00</span>  client-initiated, bidirectional    <span class="cm">// 0, 4, 8, 12, ...</span>
+<span class="hi">0x01</span>  server-initiated, bidirectional    <span class="cm">// 1, 5, 9, 13, ...</span>
+<span class="hi">0x02</span>  client-initiated, unidirectional   <span class="cm">// 2, 6, 10, 14, ...</span>
+<span class="hi">0x03</span>  server-initiated, unidirectional   <span class="cm">// 3, 7, 11, 15, ...</span></code></pre>
+    </div>
+
+    <div class="callout animate" style="--i:1">
+      <div class="callout__title">Opening one stream can open several</div>
+      Streams of a type must be created in increasing order — but you may skip ahead. Using stream 12 when you have
+      only used 0 and 4 <strong>implicitly opens 8 as well</strong>. That is what makes a lost or reordered STREAM frame
+      harmless: the receiver's view of which streams exist does not depend on arrival order.
+    </div>
+
+    <h3 class="sub">The two half-lives of a stream</h3>
+
+    <p class="sec-intro">
+      §3 models each direction separately: a sending part and a receiving part. A bidirectional stream is just both,
+      superimposed. Every terminal state below is reached in one of exactly two ways — the data ended cleanly, or it
+      was reset.
+    </p>
+
+    <div class="card-grid card-grid--2 animate" style="--i:2">
+      <div class="ve-card">
+        <div class="ve-card__label">Sending side &mdash; §3.1</div>
+        <ul class="node-list">
+          <li><strong>Ready</strong> — the stream exists but nothing has been sent.</li>
+          <li><strong>Send</strong> — sending STREAM frames, subject to flow control.</li>
+          <li><strong>Data Sent</strong> — the FIN has gone out; the final size is now fixed and only retransmissions remain.</li>
+          <li><strong>Data Recvd</strong> — everything, including the FIN, has been acknowledged. Terminal.</li>
+          <li><strong>Reset Sent → Reset Recvd</strong> — the alternative ending, via <code>RESET_STREAM</code>.</li>
+        </ul>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--secondary">Receiving side &mdash; §3.2</div>
+        <ul class="node-list">
+          <li><strong>Recv</strong> — accepting data, buffering out-of-order arrivals up to the advertised limit.</li>
+          <li><strong>Size Known</strong> — the FIN arrived, so the final size is known even if holes remain.</li>
+          <li><strong>Data Recvd</strong> — the byte stream is complete. Terminal once read by the application.</li>
+          <li><strong>Reset Recvd</strong> — a <code>RESET_STREAM</code> arrived; the application is told the stream aborted.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3 class="sub">Cancelling a stream: two frames, one direction each</h3>
+
+    <div class="card-grid card-grid--2 animate" style="--i:3">
+      <div class="ve-card ve-card--recessed">
+        <h3><code>RESET_STREAM</code> &mdash; I am done sending</h3>
+        <p>
+          Abruptly ends the sender's half. It carries the <strong>final size</strong>, and that number is why cancelling
+          a stream cannot be used to escape flow control: those bytes still count against the connection limit whether
+          they were delivered or not.
+        </p>
+      </div>
+      <div class="ve-card ve-card--recessed">
+        <h3><code>STOP_SENDING</code> &mdash; please stop</h3>
+        <p>
+          A receiver's request that the peer stop. It has no direct effect; the peer is expected to answer with
+          <code>RESET_STREAM</code>. Without it, a receiver that has abandoned a stream would have to keep granting it
+          flow-control credit to avoid stalling the connection.
+        </p>
+      </div>
+    </div>
+
+    <div class="callout callout--warning animate" style="--i:4">
+      <div class="callout__title">Prioritisation is not here</div>
+      §2.3 acknowledges that stream scheduling has a large effect on performance, and then declines to specify anything:
+      "QUIC does not provide a mechanism for exchanging prioritization information." The application protocol owns it —
+      for HTTP/3, that is <a href="https://www.rfc-editor.org/rfc/rfc9218">RFC 9218</a>. What QUIC does give an
+      implementation is the API surface to act on it.
+    </div>
+
+    <!-- ============ 6 ============ -->
+    <div class="sec-head" id="s6">
+      <span class="sec-head__num">06</span>
+      <span class="sec-head__title">Flow control</span>
+    </div>
+
+    <p class="sec-intro">
+      A receiver has to buffer out-of-order data to deliver an ordered stream, and it cannot let a peer decide how much
+      memory that costs. QUIC's answer is credit, granted along <strong>three separate axes</strong> — and the
+      per-connection axis is the one that stops a peer opening a thousand streams to multiply its allowance.
+    </p>
+
+    <div class="card-grid animate" style="--i:0">
+      <div class="ve-card">
+        <div class="ve-card__label">Axis 1 &mdash; per stream</div>
+        <h3><code>MAX_STREAM_DATA</code></h3>
+        <p>
+          The largest byte offset the peer may reach on <em>this</em> stream. Initial values arrive as transport
+          parameters, one per stream type: <code>initial_max_stream_data_bidi_local</code>,
+          <code>…_bidi_remote</code>, <code>…_uni</code>.
+        </p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--accent">Axis 2 &mdash; per connection</div>
+        <h3><code>MAX_DATA</code></h3>
+        <p>
+          The total across all streams. Bounds the receiver's memory regardless of how the peer distributes its
+          traffic. Starts at <code>initial_max_data</code>.
+        </p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--secondary">Axis 3 &mdash; stream count</div>
+        <h3><code>MAX_STREAMS</code></h3>
+        <p>
+          How many streams of each type the peer may open. Bounds per-stream bookkeeping, not bytes. Starts at
+          <code>initial_max_streams_bidi</code> / <code>_uni</code> — and if either is absent or zero, the peer
+          <strong>cannot open that kind of stream at all</strong> until a MAX_STREAMS arrives.
+        </p>
+      </div>
+    </div>
+
+    <div class="callout callout--success animate" style="--i:1">
+      <div class="callout__title">Absolute values, never deltas</div>
+      Every limit frame carries the new ceiling, not an increment, and limits only ever increase — a frame that would
+      lower one is simply ignored. This makes the whole mechanism immune to reordering and duplication, which matters
+      because QUIC gives no ordering guarantee <em>between</em> frames in different packets. A receiver that lowered a
+      limit would be a <code>FLOW_CONTROL_ERROR</code> waiting to happen; the spec removes the possibility.
+    </div>
+
+    <h3 class="sub">The blocked frames are telemetry, not requests</h3>
+
+    <p class="sec-intro">
+      <code>DATA_BLOCKED</code>, <code>STREAM_DATA_BLOCKED</code>, and <code>STREAMS_BLOCKED</code> announce that a
+      sender has been stopped by a limit. They ask for nothing. Their value is diagnostic: §4.1 points out that a
+      receiver seeing them knows its own limits — or its own tuning — are what is capping throughput, rather than the
+      network.
+    </p>
+
+    <div class="table-wrap animate" style="--i:2">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>Overrun</th><th>Error</th><th class="wide">Triggered by</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="nowrap">Byte limit</td>
+              <td><code>FLOW_CONTROL_ERROR</code> <small>0x03</small></td>
+              <td class="wide">More data received than advertised, on a stream or across the connection.</td>
+            </tr>
+            <tr>
+              <td class="nowrap">Stream count</td>
+              <td><code>STREAM_LIMIT_ERROR</code> <small>0x04</small></td>
+              <td class="wide">A frame for a stream ID beyond the advertised limit for that stream type.</td>
+            </tr>
+            <tr>
+              <td class="nowrap">Final size</td>
+              <td><code>FINAL_SIZE_ERROR</code> <small>0x06</small></td>
+              <td class="wide">Data past a known final size, a final size below what was already received, or two different final sizes for one stream.</td>
+            </tr>
+            <tr>
+              <td class="nowrap">Handshake buffer</td>
+              <td><code>CRYPTO_BUFFER_EXCEEDED</code> <small>0x0d</small></td>
+              <td class="wide">More CRYPTO data than the endpoint can buffer. CRYPTO frames are not flow controlled, so this is the only backstop.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============ 7 ============ -->
+    <div class="sec-head" id="s7">
+      <span class="sec-head__num">07</span>
+      <span class="sec-head__title">Connection IDs and migration</span>
+    </div>
+
+    <p class="sec-intro">
+      Each endpoint chooses the connection IDs <em>its peer</em> writes into packets sent to it. That inversion is the
+      whole trick: a connection ID only has to be meaningful to its issuer, so a server can encode routing information
+      in it and a load balancer can steer on it without terminating the connection.
+    </p>
+
+    <div class="ve-card animate" style="--i:0">
+      <div class="ve-card__label">The mechanics</div>
+      <ul class="node-list">
+        <li>Up to <strong>20 bytes</strong> in version 1. A longer value in a v1 long header means drop the packet.</li>
+        <li><strong>Zero-length is legal</strong> — for a client that never needs packets routed to it by ID. The cost is that it cannot then multiplex connections on one IP and port if migration, NAT rebinding, or port reuse are in play.</li>
+        <li>Each gets a sequence number. <code>NEW_CONNECTION_ID</code> issues one; <code>RETIRE_CONNECTION_ID</code> gives it back. A "Retire Prior To" field lets the issuer force a bulk rotation.</li>
+        <li><code>active_connection_id_limit</code> caps how many the peer may hold. <strong>Minimum 2, default 2</strong>; advertising less than 2 is a <code>TRANSPORT_PARAMETER_ERROR</code>. Two is the floor because migrating requires having a spare.</li>
+        <li>The same connection ID must never be issued twice, and IDs must carry nothing that lets an outside observer link them. Otherwise the whole privacy story collapses.</li>
+      </ul>
+    </div>
+
+    <h3 class="sub">Path validation</h3>
+
+    <p class="sec-intro">
+      When a packet arrives from an address that has not been validated, the endpoint must probe that path before it
+      commits to it. §9.1 splits frames into <strong>probing</strong> (PATH_CHALLENGE, PATH_RESPONSE,
+      NEW_CONNECTION_ID, PADDING) and everything else, <strong>non-probing</strong>. A packet made only of probing
+      frames tests a path without moving the connection to it.
+    </p>
+
+    <section class="diagram-shell animate" style="--i:1">
+      <p class="diagram-shell__hint">Ctrl/Cmd + wheel to zoom. Drag to pan. Double-click to fit.</p>
+      <div class="mermaid-wrap">
+        <div class="zoom-controls">
+          <button data-action="zoom-out" title="Zoom out">&minus;</button>
+          <button data-action="zoom-in" title="Zoom in">+</button>
+          <button data-action="zoom-fit" title="Fit">⤢</button>
+          <button data-action="zoom-one" title="100%">1:1</button>
+          <button data-action="zoom-expand" title="Open full size">⛶</button>
+          <span class="zoom-label">Loading...</span>
+        </div>
+        <div class="mermaid-viewport"><div class="mermaid mermaid-canvas"></div></div>
+      </div>
+      <script type="text/plain" class="diagram-source">
+sequenceDiagram
+    participant C as Client — new address
+    participant S as Server
+
+    Note over C: Wi-Fi → cellular. New IP.<br/>Switch to an unused connection ID<br/>from the server's supply.
+
+    C->>S: 1-RTT [new CID]: PATH_CHALLENGE(8 random bytes)
+    Note right of C: probing packet — connection has<br/>not moved yet
+
+    Note over S: Unknown source address.<br/>Anti-amplification limit applies:<br/>send no more than 3× bytes received.
+    S->>C: 1-RTT: PATH_RESPONSE(same 8 bytes)
+    Note left of S: MUST go back on the path<br/>the challenge arrived on
+
+    C->>S: 1-RTT [new CID]: STREAM[...]
+    Note right of C: non-probing packet — the<br/>connection has now migrated
+
+    S->>C: 1-RTT: PATH_CHALLENGE
+    Note over S: Server validates the new client<br/>address in its own direction too
+    C->>S: 1-RTT: PATH_RESPONSE
+
+    Note over C,S: Congestion window and RTT estimate<br/>reset to initial values (§9.4).<br/>The new path shares nothing with the old one.
+      </script>
+      <p class="diagram-caption">§8.2 and §9 — path validation, then migration. Both are just frames; there is no separate handshake.</p>
+    </section>
+
+    <div class="card-grid card-grid--2 animate" style="--i:2; margin-top:20px">
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--warning">Not every address change is a migration</div>
+        <p>
+          A NAT reallocating a port produces the same observable event as a deliberate migration, and the endpoint
+          cannot tell them apart. Either way it must run path validation. §9.3.3 also covers the nastier case: an
+          attacker who forwards packets from a spoofed address can trigger a migration, and the fix is that the
+          <strong>original path stays validated</strong>, so the endpoint can fall back to it.
+        </p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--destructive">Migration is a privacy event</div>
+        <p>
+          §9.5 is blunt: an endpoint that migrates <strong>must use a fresh connection ID</strong>, and should not reuse
+          one across paths. Otherwise an observer who sees the same connection ID on two networks has linked the user's
+          home IP to their office IP — exactly the correlation connection IDs were introduced to prevent.
+        </p>
+      </div>
+    </div>
+
+    <div class="callout animate" style="--i:3">
+      <div class="callout__title">Two transport parameters that constrain all this</div>
+      <code>disable_active_migration</code> — a zero-length flag saying "do not move off the address you handshook on".
+      A server behind a stateful load balancer typically sets it.<br>
+      <code>preferred_address</code> — the server's invitation to move <em>to</em> a different address after the
+      handshake, bundled with a connection ID at sequence number 1 and its reset token, so the client always has an
+      unused ID ready for the move.
+    </div>
+
+    <!-- ============ 8 ============ -->
+    <div class="sec-head" id="s8">
+      <span class="sec-head__num">08</span>
+      <span class="sec-head__title">Address validation and datagram size</span>
+    </div>
+
+    <p class="sec-intro">
+      UDP has no handshake, so anyone can send a QUIC server a packet with a forged source address and have the reply
+      land on a victim. If the reply is bigger than the request, the server has become an amplifier. §8 and §14 are
+      the two halves of the defence, and they are tightly coupled.
+    </p>
+
+    <div class="card-grid card-grid--2 animate" style="--i:0">
+      <div class="ve-card ve-card--hero">
+        <div class="ve-card__label">The rule</div>
+        <h3>Three times, no more</h3>
+        <p>
+          "After receiving packets from an address that is not yet validated, an endpoint MUST limit the amount of data
+          it sends to the unvalidated address to <strong>three times the amount of data received</strong> from that
+          address."
+        </p>
+        <p>
+          Bytes are counted across <em>all</em> datagrams attributable to the connection — including ones whose packets
+          were discarded entirely. An attacker gets no credit for sending garbage, but the victim gets no extra
+          exposure either.
+        </p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--accent">The complement</div>
+        <h3>Pad the Initial to 1200</h3>
+        <p>
+          A client MUST expand every datagram carrying an Initial packet to at least 1200 bytes, with PADDING frames or
+          by coalescing. Two effects at once: it proves the path can carry a usable MTU in both directions, and it
+          <strong>raises the numerator of the 3× budget</strong> so the server can actually fit its certificate chain
+          into the first flight.
+        </p>
+        <p>
+          A server MUST discard an Initial arriving in a smaller datagram, and MAY close with
+          <code>PROTOCOL_VIOLATION</code>.
+        </p>
+      </div>
+    </div>
+
+    <h3 class="sub">Where 1200 comes from</h3>
+
+    <div class="ve-card animate" style="--i:1">
+      <div class="ve-card__label ve-card__label--success">UDP payload budget, §14</div>
+      <div class="sizebar">
+        <div class="sizebar__label">Required floor<br>QUIC MUST NOT be used below this</div>
+        <div class="sizebar__track"><div class="sizebar__fill sizebar__fill--floor" style="width:1.83%">1200</div></div>
+
+        <div class="sizebar__label">IPv6 minimum path<br>1280 &minus; 40 IP &minus; 8 UDP</div>
+        <div class="sizebar__track"><div class="sizebar__fill sizebar__fill--path" style="width:1.88%">1232</div></div>
+
+        <div class="sizebar__label">IPv4 at the same MTU<br>1280 &minus; 20 IP &minus; 8 UDP</div>
+        <div class="sizebar__track"><div class="sizebar__fill sizebar__fill--path" style="width:1.91%">1252</div></div>
+
+        <div class="sizebar__label">max_udp_payload_size<br>default, and the parameter's ceiling</div>
+        <div class="sizebar__track"><div class="sizebar__fill sizebar__fill--max" style="width:100%">65527</div></div>
+      </div>
+      <p class="footnote">
+        1200 is the IPv6 minimum MTU of 1280 with the largest plausible header overhead subtracted, then rounded down —
+        leaving 32 bytes of slack for IPv6 extension headers or 52 for IPv4 options. Anything above 1200 has to be
+        discovered with PMTUD (§14.2) or DPLPMTUD (§14.3). <code>max_udp_payload_size</code> values below 1200 are
+        invalid, and UDP datagrams must not be IP-fragmented — set DF on IPv4.
+      </p>
+    </div>
+
+    <h3 class="sub">Three ways an address gets validated</h3>
+
+    <div class="table-wrap animate" style="--i:2">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>Mechanism</th><th>Cost</th><th class="wide">How it works</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="nowrap"><strong>Implicit</strong><br><small>§8.1</small></td>
+              <td><span class="status status--ok">free</span></td>
+              <td class="wide">Processing a Handshake packet from the peer validates its address, because producing one required receiving your Initial. This is the normal path — most connections never need anything else.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><strong>Retry</strong><br><small>§8.1.2</small></td>
+              <td><span class="status status--should">+1 RTT</span></td>
+              <td class="wide">The server answers the client's Initial with a Retry carrying a token, and the client repeats it in every subsequent Initial. A server may only send one Retry per connection. Doubles as a way to defer connection state, and to hand out a new connection ID that redirects the client to a different instance.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><strong>NEW_TOKEN</strong><br><small>§8.1.3</small></td>
+              <td><span class="status status--ok">free</span></td>
+              <td class="wide">A token issued during one connection, presented at the start of the <em>next</em>. This is what makes generous 0-RTT responses safe, since the server would otherwise be amplifying on an unvalidated address.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-caption">§8.1.1 — tokens from the two sources are carried in the same field, but must be distinguishable by the server, because they warrant different handling.</p>
+    </div>
+
+    <div class="callout callout--warning animate" style="--i:3">
+      <div class="callout__title">The deadlock the 3× limit creates</div>
+      A server hits its anti-amplification limit and stops. The client has acknowledged everything it sent and has no
+      reason to speak. Nobody moves, and the handshake hangs. §8.1's fix is a client obligation: <strong>send a packet
+      on every Probe Timeout</strong> — a padded 1200-byte Initial if it lacks Handshake keys, otherwise a Handshake
+      packet. Each one buys the server another 3× of budget.
+    </div>
+
+    <!-- ============ 9 ============ -->
+    <div class="sec-head" id="s9">
+      <span class="sec-head__num">09</span>
+      <span class="sec-head__title">Termination, errors, and stateless reset</span>
+    </div>
+
+    <p class="sec-intro">
+      Three ways a connection ends, and they differ in what state the endpoint has left. That is the axis worth holding
+      onto: <code>CONNECTION_CLOSE</code> needs keys and connection state, idle timeout needs neither party to act, and
+      stateless reset exists precisely for the case where <em>all</em> state is gone.
+    </p>
+
+    <div class="card-grid animate" style="--i:0">
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--secondary">Idle timeout &mdash; §10.1</div>
+        <h3>Both sides just stop</h3>
+        <p>
+          Each endpoint may advertise <code>max_idle_timeout</code>; the effective value is the <strong>minimum of the
+          two non-zero values</strong>. If both omit it or send 0, there is no idle timeout at all. To avoid a race
+          where both sides silently disagree, an endpoint must not close on idle before three PTOs have elapsed.
+        </p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--destructive">Immediate close &mdash; §10.2</div>
+        <h3><code>CONNECTION_CLOSE</code></h3>
+        <p>
+          Sender enters the <strong>closing state</strong>: it sends nothing new, but re-emits the close frame in
+          response to incoming packets, rate-limited. Receiver enters the <strong>draining state</strong>: it sends
+          nothing at all. Both last about three PTOs, long enough to absorb in-flight packets so the peer is not left
+          retransmitting into a void.
+        </p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--warning">Stateless reset &mdash; §10.3</div>
+        <h3>Last resort</h3>
+        <p>
+          An endpoint that has lost its connection state — a crash, a restart, a load balancer moving the flow — cannot
+          produce a valid <code>CONNECTION_CLOSE</code>, because that needs keys. It sends a stateless reset instead,
+          and the peer tears the connection down immediately.
+        </p>
+      </div>
+    </div>
+
+    <h3 class="sub">The shape of a stateless reset</h3>
+
+    <p class="sec-intro">
+      The design constraint is unusual and worth stating plainly: the reset must be <strong>indistinguishable from an
+      ordinary 1-RTT packet</strong> to anyone but its recipient. If it were recognisable, an off-path attacker could
+      forge one and kill connections at will.
+    </p>
+
+    <div class="code-file animate" style="--i:1">
+      <div class="code-file__header"><span>§10.3, Figure 10 &mdash; Stateless Reset</span></div>
+      <pre class="code-file__body"><code><span class="kw">Stateless Reset</span> {
+    Fixed Bits (<span class="num">2</span>) = <span class="num">1</span>,           <span class="cm">// looks like a short header</span>
+    Unpredictable Bits (<span class="num">38</span>..),     <span class="cm">// indistinguishable from random</span>
+    <span class="hi">Stateless Reset Token (128)</span>,   <span class="cm">// the last 16 bytes of the datagram</span>
+}
+
+<span class="cm">// The token is issued ahead of time, encrypted, in either:</span>
+<span class="cm">//   • the stateless_reset_token transport parameter  (server only —</span>
+<span class="cm">//     client transport parameters have no confidentiality protection)</span>
+<span class="cm">//   • the Stateless Reset Token field of a NEW_CONNECTION_ID frame</span>
+<span class="cm">//</span>
+<span class="cm">// A token is tied to one connection ID, and dies when that ID is retired.</span></code></pre>
+    </div>
+
+    <div class="callout callout--accent animate" style="--i:2">
+      <div class="callout__title">Padding as camouflage</div>
+      The minimum viable reset is 21 bytes, but that is not enough to hide it if the recipient uses long connection IDs
+      — a short datagram could not have held one. So §10.3 asks endpoints to pad <em>all</em> their outgoing packets to
+      at least <strong>22 bytes more than the connection ID length they ask their peer to use</strong>. That way, any
+      stateless reset the peer might send is the same size as ordinary traffic. A reset answering a datagram of 43
+      bytes or fewer must itself be one byte shorter than what it replies to — so resets can never loop.
+    </div>
+
+    <h3 class="sub">Connection errors and stream errors</h3>
+
+    <p class="sec-intro">
+      §11 draws the line: an error that leaves the connection unusable is a <strong>connection error</strong> and ends
+      everything with <code>CONNECTION_CLOSE</code>. An error confined to one stream is a <strong>stream error</strong>
+      and costs only that stream, via <code>RESET_STREAM</code>. Most protocol violations are the former.
+    </p>
+
+    <div class="table-wrap animate" style="--i:3">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>Code</th><th>Name</th><th class="wide">Meaning</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="nowrap"><code>0x00</code></td><td class="nowrap">NO_ERROR</td><td class="wide">Closing cleanly, nothing went wrong.</td></tr>
+            <tr><td class="nowrap"><code>0x01</code></td><td class="nowrap">INTERNAL_ERROR</td><td class="wide">Something broke locally.</td></tr>
+            <tr><td class="nowrap"><code>0x02</code></td><td class="nowrap">CONNECTION_REFUSED</td><td class="wide">The server declined a new connection.</td></tr>
+            <tr><td class="nowrap"><code>0x03</code></td><td class="nowrap">FLOW_CONTROL_ERROR</td><td class="wide">More data than the advertised limit permitted.</td></tr>
+            <tr><td class="nowrap"><code>0x04</code></td><td class="nowrap">STREAM_LIMIT_ERROR</td><td class="wide">A stream ID beyond the advertised limit for its type.</td></tr>
+            <tr><td class="nowrap"><code>0x05</code></td><td class="nowrap">STREAM_STATE_ERROR</td><td class="wide">A frame for a stream in a state that does not permit it.</td></tr>
+            <tr><td class="nowrap"><code>0x06</code></td><td class="nowrap">FINAL_SIZE_ERROR</td><td class="wide">Data past the final size, or an inconsistent final size.</td></tr>
+            <tr><td class="nowrap"><code>0x07</code></td><td class="nowrap">FRAME_ENCODING_ERROR</td><td class="wide">A malformed frame — including an unknown frame type.</td></tr>
+            <tr><td class="nowrap"><code>0x08</code></td><td class="nowrap">TRANSPORT_PARAMETER_ERROR</td><td class="wide">Bad, missing, forbidden, or out-of-range transport parameters.</td></tr>
+            <tr><td class="nowrap"><code>0x09</code></td><td class="nowrap">CONNECTION_ID_LIMIT_ERROR</td><td class="wide">The peer issued more connection IDs than <code>active_connection_id_limit</code> allows.</td></tr>
+            <tr><td class="nowrap"><code>0x0a</code></td><td class="nowrap">PROTOCOL_VIOLATION</td><td class="wide">The catch-all for compliance failures no other code names.</td></tr>
+            <tr><td class="nowrap"><code>0x0b</code></td><td class="nowrap">INVALID_TOKEN</td><td class="wide">A client Initial carried a bad token. The server should close immediately rather than let the client time out.</td></tr>
+            <tr><td class="nowrap"><code>0x0c</code></td><td class="nowrap">APPLICATION_ERROR</td><td class="wide">The application caused the close.</td></tr>
+            <tr><td class="nowrap"><code>0x0d</code></td><td class="nowrap">CRYPTO_BUFFER_EXCEEDED</td><td class="wide">More CRYPTO data than can be buffered.</td></tr>
+            <tr><td class="nowrap"><code>0x0e</code></td><td class="nowrap">KEY_UPDATE_ERROR</td><td class="wide">A key update went wrong; see RFC 9001 §6.</td></tr>
+            <tr><td class="nowrap"><code>0x0f</code></td><td class="nowrap">AEAD_LIMIT_REACHED</td><td class="wide">The confidentiality or integrity limit for the AEAD in use has been hit.</td></tr>
+            <tr><td class="nowrap"><code>0x10</code></td><td class="nowrap">NO_VIABLE_PATH</td><td class="wide">The path cannot support QUIC — in practice, cannot carry a large enough MTU. Rarely seen, since the peer usually cannot receive it either.</td></tr>
+            <tr><td class="nowrap"><code>0x0100-<br>0x01ff</code></td><td class="nowrap">CRYPTO_ERROR</td><td class="wide">256 values reserved to carry the handshake protocol's own errors. With TLS, the low byte is the TLS alert code.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-caption">§20.1 — transport error codes, carried in <code>CONNECTION_CLOSE</code> type <code>0x1c</code>. Application error codes (type <code>0x1d</code>, and <code>RESET_STREAM</code>/<code>STOP_SENDING</code>) are entirely the application protocol's business.</p>
+    </div>
+
+    <!-- ============ 10 ============ -->
+    <div class="sec-head" id="s10">
+      <span class="sec-head__num">10</span>
+      <span class="sec-head__title">Wire encoding</span>
+    </div>
+
+    <p class="sec-intro">
+      Two encodings account for most of the format: the variable-length integer that nearly every field uses, and the
+      transport parameter list that the handshake carries.
+    </p>
+
+    <h3 class="sub">Variable-length integers</h3>
+
+    <p class="sec-intro">
+      The two most significant bits of the first byte hold the base-2 logarithm of the total length in bytes. The
+      remaining bits are the value, big-endian. So a small number costs one byte, and the encoding still reaches
+      2<sup>62</sup>&minus;1.
+    </p>
+
+    <div class="table-wrap animate" style="--i:0">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>2 MSB</th><th>Length</th><th>Usable bits</th><th>Range</th><th class="wide">Typical use</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="nowrap"><code>00</code></td><td class="nowrap">1 byte</td><td class="nowrap">6</td><td class="nowrap">0 – 63</td><td class="wide">Every frame type in this document. Small stream IDs, small offsets.</td></tr>
+            <tr><td class="nowrap"><code>01</code></td><td class="nowrap">2 bytes</td><td class="nowrap">14</td><td class="nowrap">0 – 16,383</td><td class="wide">Frame lengths, ACK ranges, most transport parameter values.</td></tr>
+            <tr><td class="nowrap"><code>10</code></td><td class="nowrap">4 bytes</td><td class="nowrap">30</td><td class="nowrap">0 – 1,073,741,823</td><td class="wide">Flow control limits on a busy connection.</td></tr>
+            <tr><td class="nowrap"><code>11</code></td><td class="nowrap">8 bytes</td><td class="nowrap">62</td><td class="nowrap">0 – 4,611,686,018,427,387,903</td><td class="wide">Stream IDs and stream offsets at their full range.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-caption">§16, Table 4. Non-minimal encodings are allowed everywhere <em>except</em> the frame type field.</p>
+    </div>
+
+    <div class="callout animate" style="--i:1">
+      <div class="callout__title">Three fields that are not varints</div>
+      Versions (§15) are a fixed 32 bits. Packet numbers in a header (§17.1) are 1–4 raw bytes with the length in the
+      first byte's low bits. Connection ID lengths in a long header (§17.2) are a plain 8-bit integer. All three are
+      version-invariant fields — they have to be parseable by an endpoint that does not know the version, so they
+      cannot use a version-specific encoding.
+    </div>
+
+    <h3 class="sub">Transport parameters</h3>
+
+    <p class="sec-intro">
+      Carried in a TLS extension and therefore authenticated by the handshake, with confidentiality for the server's
+      set. Every parameter is a varint identifier, a varint length, and a value. <strong>Absent means zero</strong>,
+      unless the parameter says otherwise — which for several of them means "the peer may not do this at all".
+    </p>
+
+    <div class="table-wrap animate" style="--i:2">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>ID</th><th>Parameter</th><th>Default</th><th class="wide">Effect</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="nowrap"><code>0x00</code></td><td class="nowrap">original_destination_<br>connection_id <span class="status status--info">server</span></td><td class="nowrap">&mdash;</td>
+              <td class="wide">Echoes the Destination Connection ID from the client's first Initial. Proves the server that finished the handshake is the one that saw the original packet — the anti-Retry-injection check.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x01</code></td><td class="nowrap">max_idle_timeout</td><td class="nowrap">0 = off</td>
+              <td class="wide">Milliseconds. The effective timeout is the smaller of the two non-zero values.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x02</code></td><td class="nowrap">stateless_reset_token <span class="status status--info">server</span></td><td class="nowrap">&mdash;</td>
+              <td class="wide">16 bytes, for the connection ID chosen during the handshake. A server that omits it cannot stateless-reset that connection ID.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x03</code></td><td class="nowrap">max_udp_payload_size</td><td class="nowrap">65527</td>
+              <td class="wide">The largest UDP payload this endpoint will process. Values below 1200 are invalid. A property of the endpoint, not the path.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x04</code></td><td class="nowrap">initial_max_data</td><td class="nowrap">0</td>
+              <td class="wide">Connection-wide flow control credit at the start. Equivalent to a MAX_DATA sent immediately.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x05</code><br><code>0x06</code><br><code>0x07</code></td>
+              <td class="nowrap">initial_max_stream_data_<br>bidi_local / bidi_remote / uni</td><td class="nowrap">0</td>
+              <td class="wide">Per-stream credit, split by who opens the stream and which direction it runs. Absent means new streams of that type start with zero credit.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x08</code><br><code>0x09</code></td><td class="nowrap">initial_max_streams_bidi<br>initial_max_streams_uni</td><td class="nowrap">0</td>
+              <td class="wide">How many streams the peer may open. <strong>Zero or absent means none</strong> until a MAX_STREAMS frame arrives.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x0a</code></td><td class="nowrap">ack_delay_exponent</td><td class="nowrap">3</td>
+              <td class="wide">The ACK Delay field is scaled by 2 to this power, so a small field can express a wide range. Above 20 is invalid.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x0b</code></td><td class="nowrap">max_ack_delay</td><td class="nowrap">25 ms</td>
+              <td class="wide">The longest this endpoint will sit on an acknowledgement. Should include expected timer slop. 2<sup>14</sup> or more is invalid.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x0c</code></td><td class="nowrap">disable_active_migration</td><td class="nowrap">absent</td>
+              <td class="wide">Zero-length flag. The peer must not send from a new local address to the handshake address.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x0d</code></td><td class="nowrap">preferred_address <span class="status status--info">server</span></td><td class="nowrap">&mdash;</td>
+              <td class="wide">An IPv4 and an IPv6 address/port pair, plus a connection ID at sequence number 1 and its reset token. A server with a zero-length connection ID cannot offer one.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x0e</code></td><td class="nowrap">active_connection_id_limit</td><td class="nowrap">2</td>
+              <td class="wide">How many of the peer's connection IDs this endpoint will store. Below 2 is a <code>TRANSPORT_PARAMETER_ERROR</code>.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x0f</code></td><td class="nowrap">initial_source_<br>connection_id</td><td class="nowrap">&mdash;</td>
+              <td class="wide">The Source Connection ID from this endpoint's first Initial. Sent by both sides.</td>
+            </tr>
+            <tr>
+              <td class="nowrap"><code>0x10</code></td><td class="nowrap">retry_source_<br>connection_id <span class="status status--info">server</span></td><td class="nowrap">&mdash;</td>
+              <td class="wide">The Source Connection ID from the server's Retry packet, if one was sent.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-caption">
+        §18.2. A client sending any of the four server-only parameters is a <code>TRANSPORT_PARAMETER_ERROR</code>.
+        §18.1 also reserves values of the form <code>31 * N + 27</code> as GREASE — an endpoint may send them with
+        junk contents, and a peer that chokes on one has an ossification bug.
+      </p>
+    </div>
+
+    <div class="callout callout--success animate" style="--i:3">
+      <div class="callout__title">Why 0x00, 0x0f, and 0x10 exist</div>
+      All three are connection IDs echoed back, and together they close the same hole. Connection IDs are chosen before
+      any keys exist, so an on-path attacker can rewrite them in Initial packets without detection. By having each side
+      restate, inside the authenticated handshake, which connection IDs it originally used, both endpoints can verify
+      afterwards that nothing was tampered with. §7.3 requires the check, and a mismatch is a
+      <code>TRANSPORT_PARAMETER_ERROR</code>.
+    </div>
+
+    <footer class="page-foot">
+      <span>RFC 9000 — QUIC: A UDP-Based Multiplexed and Secure Transport</span>
+      <span>J. Iyengar, M. Thomson (eds.), May 2021</span>
+      <span><a href="https://www.rfc-editor.org/rfc/rfc9000">rfc-editor.org/rfc/rfc9000</a></span>
+    </footer>
+
+  </div><!-- /main -->
+</div><!-- /wrap -->
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+  const config = {
+    fitPadding: 28, minHeight: 360, maxHeightPx: 1000,
+    maxHeightVh: 0.86, maxInitialZoom: 1.8, minZoom: 0.08,
+    maxZoom: 6.5, zoomStep: 0.14, readabilityFloor: 0.58
+  };
+
+  const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+  let activeDrag = null;
+
+  addEventListener('mousemove', (e) => activeDrag?.onMove(e));
+  addEventListener('mouseup', () => { activeDrag?.onEnd(); activeDrag = null; });
+
+  const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'base',
+    look: 'classic',
+    themeVariables: {
+      fontFamily: "'Inter', system-ui, sans-serif",
+      fontSize: '15px',
+      primaryColor:        isDark ? '#332a52' : '#ede9fe',
+      primaryBorderColor:  isDark ? '#a78bfa' : '#6d28d9',
+      primaryTextColor:    isDark ? '#e6e2f5' : '#2e1065',
+      secondaryColor:      isDark ? '#123c3c' : '#d8f3f0',
+      secondaryBorderColor:isDark ? '#5eead4' : '#0f766e',
+      secondaryTextColor:  isDark ? '#e6e2f5' : '#0f2e2c',
+      tertiaryColor:       isDark ? '#3a2b16' : '#fef3e2',
+      tertiaryBorderColor: isDark ? '#fbbf24' : '#d97706',
+      tertiaryTextColor:   isDark ? '#f3e8d5' : '#451a03',
+      lineColor:           isDark ? '#9aa2b8' : '#5b6478',
+      textColor:           isDark ? '#e2e5ee' : '#221f2e',
+      mainBkg:             isDark ? '#332a52' : '#ede9fe',
+      noteBkgColor:        isDark ? '#3a2b16' : '#fffbeb',
+      noteTextColor:       isDark ? '#f3e8d5' : '#451a03',
+      noteBorderColor:     isDark ? '#fbbf24' : '#d97706',
+      actorBkg:            isDark ? '#332a52' : '#ede9fe',
+      actorBorder:         isDark ? '#a78bfa' : '#6d28d9',
+      actorTextColor:      isDark ? '#e6e2f5' : '#2e1065',
+      signalColor:         isDark ? '#9aa2b8' : '#5b6478',
+      signalTextColor:     isDark ? '#e2e5ee' : '#221f2e',
+      sequenceNumberColor: isDark ? '#1a1626' : '#ffffff'
+    }
+  });
+
+  function initDiagram(shell) {
+    const wrap = shell.querySelector('.mermaid-wrap');
+    const viewport = shell.querySelector('.mermaid-viewport');
+    const canvas = shell.querySelector('.mermaid-canvas');
+    const source = shell.querySelector('.diagram-source');
+    const label = shell.querySelector('.zoom-label');
+
+    if (!wrap || !viewport || !canvas || !source || !label) {
+      console.error('initDiagram: missing required elements in', shell);
+      return;
+    }
+
+    let zoom = 1, fitMode = 'contain', panX = 0, panY = 0, svgW = 0, svgH = 0;
+    let sx = 0, sy = 0, spx = 0, spy = 0;
+    let touchDist = 0, touchCx = 0, touchCy = 0;
+
+    function constrainPan() {
+      const vpW = viewport.clientWidth, vpH = viewport.clientHeight;
+      const rW = svgW * zoom, rH = svgH * zoom, pad = config.fitPadding;
+      panX = (rW + pad * 2 <= vpW) ? (vpW - rW) / 2 : clamp(panX, vpW - rW - pad, pad);
+      panY = (rH + pad * 2 <= vpH) ? (vpH - rH) / 2 : clamp(panY, vpH - rH - pad, pad);
+    }
+
+    function applyTransform() {
+      const svg = canvas.querySelector('svg');
+      if (!svg || !svgW) return;
+      constrainPan();
+      svg.style.width = (svgW * zoom) + 'px';
+      svg.style.height = (svgH * zoom) + 'px';
+      canvas.style.transform = `translate(${panX}px, ${panY}px)`;
+      label.textContent = Math.round(zoom * 100) + '% — ' + fitMode;
+    }
+
+    function canPan() {
+      const rW = svgW * zoom, rH = svgH * zoom;
+      return rW + config.fitPadding * 2 > viewport.clientWidth
+          || rH + config.fitPadding * 2 > viewport.clientHeight;
+    }
+
+    function computeSmartFit() {
+      const vpW = viewport.clientWidth, vpH = viewport.clientHeight;
+      const aW = Math.max(80, vpW - config.fitPadding * 2);
+      const aH = Math.max(80, vpH - config.fitPadding * 2);
+      const contain = Math.min(aW / svgW, aH / svgH);
+      let z = contain, mode = 'contain';
+      if (contain < config.readabilityFloor) {
+        const chartR = svgH / svgW, vpR = vpH / Math.max(vpW, 1);
+        if (chartR >= vpR) { z = aW / svgW; mode = 'width-priority'; }
+        else { z = aH / svgH; mode = 'height-priority'; }
+      }
+      return { zoom: clamp(z, config.minZoom, config.maxInitialZoom), mode };
+    }
+
+    function fitDiagram() {
+      if (!svgW) return;
+      const fit = computeSmartFit();
+      zoom = fit.zoom; fitMode = fit.mode;
+      panX = (viewport.clientWidth - svgW * zoom) / 2;
+      panY = (viewport.clientHeight - svgH * zoom) / 2;
+      applyTransform();
+    }
+
+    function setOneToOne() {
+      zoom = clamp(1, config.minZoom, config.maxZoom);
+      fitMode = '1:1';
+      panX = (viewport.clientWidth - svgW * zoom) / 2;
+      panY = (viewport.clientHeight - svgH * zoom) / 2;
+      applyTransform();
+    }
+
+    function zoomAround(factor, cx, cy) {
+      const next = clamp(zoom * factor, config.minZoom, config.maxZoom);
+      const ratio = next / zoom;
+      panX = cx - ratio * (cx - panX);
+      panY = cy - ratio * (cy - panY);
+      zoom = next; fitMode = 'custom';
+      applyTransform();
+    }
+
+    function readSvgNaturalSize(svg) {
+      let w = 0, h = 0;
+      if (svg.viewBox?.baseVal?.width > 0) { w = svg.viewBox.baseVal.width; h = svg.viewBox.baseVal.height; }
+      if (!w) { w = parseFloat(svg.getAttribute('width')) || 0; h = parseFloat(svg.getAttribute('height')) || 0; }
+      if (!w) { const b = svg.getBBox(); w = b.width; h = b.height; }
+      if (!w) { const r = svg.getBoundingClientRect(); w = r.width || 1000; h = r.height || 700; }
+      if (!svg.getAttribute('viewBox')) svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      return { w, h };
+    }
+
+    function setAdaptiveHeight() {
+      if (!svgW) return;
+      const usableW = Math.max(280, wrap.getBoundingClientRect().width - 2);
+      const idealH = (svgH / svgW) * usableW + config.fitPadding * 2;
+      const maxVp = Math.floor(innerHeight * config.maxHeightVh);
+      const hardMax = Math.min(config.maxHeightPx, Math.max(config.minHeight + 40, maxVp));
+      wrap.style.height = Math.round(clamp(idealH, config.minHeight, hardMax)) + 'px';
+    }
+
+    function openInNewTab() {
+      const svg = canvas.querySelector('svg');
+      if (!svg) return;
+      const clone = svg.cloneNode(true);
+      clone.style.width = ''; clone.style.height = '';
+      const bg = isDark ? '#1a1723' : '#f4f4f7';
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Diagram</title><style>
+      body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+      background:${bg};padding:40px;box-sizing:border-box}
+      svg{max-width:100%;max-height:90vh;height:auto}
+      </style></head><body>${clone.outerHTML}</body></html>`;
+      open(URL.createObjectURL(new Blob([html], { type: 'text/html' })), '_blank');
+    }
+
+    async function render() {
+      try {
+        const code = source.textContent.trim();
+        if (!code) { label.textContent = 'Error: Empty source'; return; }
+        const id = 'diagram-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+        const { svg } = await mermaid.render(id, code);
+        const parsed = new DOMParser().parseFromString(svg, 'text/html');
+        const parsedSvg = parsed.body.querySelector('svg');
+        if (!parsedSvg) { label.textContent = 'Error: No SVG'; return; }
+        canvas.replaceChildren(document.adoptNode(parsedSvg));
+
+        const svgNode = canvas.querySelector('svg');
+        if (!svgNode) { label.textContent = 'Error: No SVG'; return; }
+
+        const size = readSvgNaturalSize(svgNode);
+        svgW = size.w; svgH = size.h;
+        svgNode.removeAttribute('width');
+        svgNode.removeAttribute('height');
+        svgNode.style.maxWidth = 'none';
+        svgNode.style.display = 'block';
+
+        setAdaptiveHeight();
+        fitDiagram();
+      } catch (err) {
+        console.error('Mermaid render failed:', err);
+        label.textContent = 'Error: ' + (err.message || 'Render failed');
+      }
+    }
+
+    const actions = {
+      'zoom-in': () => zoomAround(1 + config.zoomStep, viewport.clientWidth / 2, viewport.clientHeight / 2),
+      'zoom-out': () => zoomAround(1 / (1 + config.zoomStep), viewport.clientWidth / 2, viewport.clientHeight / 2),
+      'zoom-fit': fitDiagram,
+      'zoom-one': setOneToOne,
+      'zoom-expand': openInNewTab
+    };
+    Object.entries(actions).forEach(([action, handler]) => {
+      wrap.querySelector(`[data-action="${action}"]`)?.addEventListener('click', handler);
+    });
+
+    viewport.addEventListener('dblclick', fitDiagram);
+
+    viewport.addEventListener('wheel', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const rect = viewport.getBoundingClientRect();
+        const factor = e.deltaY < 0 ? 1 + config.zoomStep : 1 / (1 + config.zoomStep);
+        zoomAround(factor, e.clientX - rect.left, e.clientY - rect.top);
+        return;
+      }
+      if (canPan()) {
+        e.preventDefault();
+        panX -= e.deltaX; panY -= e.deltaY;
+        applyTransform();
+      }
+    }, { passive: false });
+
+    viewport.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.zoom-controls') || !canPan()) return;
+      wrap.classList.add('is-panning');
+      sx = e.clientX; sy = e.clientY; spx = panX; spy = panY;
+      e.preventDefault();
+      activeDrag = {
+        onMove: (ev) => { panX = spx + (ev.clientX - sx); panY = spy + (ev.clientY - sy); applyTransform(); },
+        onEnd: () => wrap.classList.remove('is-panning')
+      };
+    });
+
+    viewport.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        sx = e.touches[0].clientX; sy = e.touches[0].clientY; spx = panX; spy = panY;
+      } else if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        touchDist = Math.sqrt(dx * dx + dy * dy);
+        const r = viewport.getBoundingClientRect();
+        touchCx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left;
+        touchCy = (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top;
+      }
+    }, { passive: true });
+
+    viewport.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 1 && canPan()) {
+        if (touchDist > 0) {
+          sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+          spx = panX; spy = panY; touchDist = 0;
+        }
+        e.preventDefault();
+        panX = spx + (e.touches[0].clientX - sx);
+        panY = spy + (e.touches[0].clientY - sy);
+        applyTransform();
+      } else if (e.touches.length === 2 && touchDist > 0) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        zoomAround(d / touchDist, touchCx, touchCy);
+        touchDist = d;
+      }
+    }, { passive: false });
+
+    new ResizeObserver(() => { if (svgW) { setAdaptiveHeight(); fitDiagram(); } }).observe(wrap);
+
+    render();
+  }
+
+  document.querySelectorAll('.diagram-shell').forEach(initDiagram);
+</script>
+
+<script>
+(function() {
+  const toc = document.getElementById('toc');
+  if (!toc) return;
+  const links = toc.querySelectorAll('a');
+  const sections = [];
+
+  links.forEach(link => {
+    const id = link.getAttribute('href').slice(1);
+    const el = document.getElementById(id);
+    if (el) sections.push({ id, el, link });
+  });
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const match = sections.find(s => s.el === entry.target);
+        if (match) {
+          match.link.classList.add('active');
+          if (window.innerWidth <= 1000) {
+            match.link.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }
+        }
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px' });
+
+  sections.forEach(s => observer.observe(s.el));
+
+  links.forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      const id = link.getAttribute('href').slice(1);
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        history.replaceState(null, '', '#' + id);
+      }
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

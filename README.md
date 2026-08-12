@@ -15,6 +15,12 @@ Rendered pages: **https://dougcooper.github.io/learnings/**
 | **Hybrid key exchange** — RFC 9954: running a traditional and a post-quantum algorithm together in TLS 1.3, KEM abstraction, concatenated key shares and secrets, the fixed-length requirement | [open](https://dougcooper.github.io/learnings/tls/rfc9954-hybrid-kex.html) | [`tls/rfc9954-hybrid-kex.html`](tls/rfc9954-hybrid-kex.html) |
 | **Raw public keys** — RFC 7250: sending a bare `SubjectPublicKeyInfo` instead of a certificate, the two certificate-type extensions, per-direction negotiation, out-of-band trust (DANE, provisioning) | [open](https://dougcooper.github.io/learnings/tls/rfc7250-raw-public-keys.html) | [`tls/rfc7250-raw-public-keys.html`](tls/rfc7250-raw-public-keys.html) |
 
+## QUIC
+
+| Topic | Read | Source |
+|---|---|---|
+| **QUIC** — RFC 9000: streams and flow control, the combined crypto/transport handshake, packets vs frames, connection IDs and migration, anti-amplification, stateless reset, wire encoding | [open](https://dougcooper.github.io/learnings/quic/rfc9000-quic.html) | [`quic/rfc9000-quic.html`](quic/rfc9000-quic.html) |
+
 ## Adding one
 
 Drop a self-contained `.html` file in a topic directory (`tls/`, or a new one)
