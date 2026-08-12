@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TLS 1.3 — RFC 8446</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   THEME — Plannotator semantic tokens (theme-override.md)
+   visual-explainer variable names are aliased onto them.
+   ============================================================ */
+:root {
+  /* Plannotator tokens */
+  --background: oklch(0.97 0.005 260);
+  --foreground: oklch(0.18 0.02 260);
+  --card: oklch(1 0 0);
+  --muted: oklch(0.92 0.01 260);
+  --muted-foreground: oklch(0.40 0.02 260);
+  --primary: oklch(0.50 0.25 280);
+  --secondary: oklch(0.50 0.18 180);
+  --accent: oklch(0.60 0.22 50);
+  --destructive: oklch(0.50 0.25 25);
+  --success: oklch(0.45 0.20 150);
+  --warning: oklch(0.55 0.18 85);
+  --border: oklch(0.88 0.01 260);
+  --code-bg: oklch(0.92 0.01 260);
+  --radius: 0.625rem;
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  --font-display: ui-serif, Georgia, 'Times New Roman', serif;
+
+  /* visual-explainer aliases */
+  --bg: var(--background);
+  --surface: var(--card);
+  --surface-elevated: var(--card);
+  --text: var(--foreground);
+  --text-dim: var(--muted-foreground);
+  --border-bright: color-mix(in oklab, var(--border) 40%, var(--muted-foreground));
+  --font-body: var(--font-sans);
+
+  --accent-dim: color-mix(in oklab, var(--primary) 12%, transparent);
+  --teal: var(--secondary);
+  --teal-dim: color-mix(in oklab, var(--secondary) 14%, transparent);
+  --amber: var(--accent);
+  --amber-dim: color-mix(in oklab, var(--accent) 14%, transparent);
+  --green: var(--success);
+  --green-dim: color-mix(in oklab, var(--success) 14%, transparent);
+  --red: var(--destructive);
+  --red-dim: color-mix(in oklab, var(--destructive) 14%, transparent);
+  --gold: var(--warning);
+  --gold-dim: color-mix(in oklab, var(--warning) 18%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: oklch(0.15 0.02 260);
+    --foreground: oklch(0.90 0.01 260);
+    --card: oklch(0.22 0.02 260);
+    --muted: oklch(0.26 0.02 260);
+    --muted-foreground: oklch(0.72 0.02 260);
+    --primary: oklch(0.75 0.18 280);
+    --secondary: oklch(0.70 0.14 180);
+    --accent: oklch(0.70 0.20 60);
+    --border: oklch(0.35 0.02 260);
+    --code-bg: oklch(0.26 0.02 260);
+    --destructive: oklch(0.65 0.20 25);
+    --success: oklch(0.72 0.17 150);
+    --warning: oklch(0.75 0.15 85);
+    --surface-elevated: oklch(0.26 0.02 260);
+  }
+}
+
+/* ============================================================
+   RESET + BASE
+   ============================================================ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background-color: var(--bg);
+  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 26px 26px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.65;
+  padding: 40px;
+  min-height: 100vh;
+  overflow-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
+}
+
+.grid > *, .flex > * { min-width: 0; }
+
+a { color: var(--primary); }
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fadeScale { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: scale(1); } }
+.animate { animation: fadeUp 0.4s ease-out both; animation-delay: calc(var(--i, 0) * 0.05s); }
+.kpi-card { animation: fadeScale 0.35s ease-out both; animation-delay: calc(var(--i, 0) * 0.06s); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================================
+   LAYOUT + TOC
+   ============================================================ */
+.wrap {
+  max-width: 1400px; margin: 0 auto;
+  display: grid; grid-template-columns: 190px 1fr; gap: 0 44px;
+}
+.main { min-width: 0; }
+
+.toc {
+  position: sticky; top: 24px; align-self: start;
+  padding: 14px 0; grid-row: 1 / -1;
+  max-height: calc(100dvh - 48px); overflow-y: auto;
+}
+.toc::-webkit-scrollbar { width: 3px; }
+.toc::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.toc-title {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 2px; color: var(--text-dim);
+  padding: 0 0 10px; margin-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.toc a {
+  display: block; font-size: 11.5px; color: var(--text-dim);
+  text-decoration: none; padding: 5px 8px; border-radius: 5px;
+  border-left: 2px solid transparent; transition: all 0.15s;
+  line-height: 1.4; margin-bottom: 1px;
+}
+.toc a:hover { color: var(--text); background: var(--muted); }
+.toc a.active { color: var(--text); border-left-color: var(--primary); background: var(--accent-dim); }
+
+/* ============================================================
+   TYPOGRAPHY
+   ============================================================ */
+h1 {
+  font-family: var(--font-display); font-size: 46px; font-weight: 500;
+  letter-spacing: -1px; line-height: 1.05; margin-bottom: 8px; text-wrap: balance;
+}
+.subtitle { color: var(--text-dim); font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.04em; }
+.hero-lede {
+  font-family: var(--font-display); font-size: 20px; font-style: italic;
+  color: var(--text-dim); max-width: 62ch; margin: 20px 0 8px; line-height: 1.45;
+}
+.description { font-size: 14.5px; line-height: 1.75; color: var(--text-dim); max-width: 74ch; margin-bottom: 18px; }
+.description code, p code, li code, td code {
+  font-family: var(--font-mono); font-size: 0.85em;
+  background: var(--accent-dim); color: var(--primary);
+  padding: 1px 5px; border-radius: 3px;
+}
+
+.sec-head {
+  font-family: var(--font-display); font-size: 26px; font-weight: 500;
+  margin: 68px 0 8px; padding-bottom: 10px; border-bottom: 1.5px solid var(--border);
+  display: flex; align-items: baseline; gap: 14px; scroll-margin-top: 24px;
+}
+.sec-head .num { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: var(--primary); }
+.sec-head .ref {
+  margin-left: auto; font-family: var(--font-mono); font-size: 11px;
+  color: var(--text-dim); font-weight: 400; white-space: nowrap;
+}
+h3 { font-family: var(--font-display); font-size: 19px; font-weight: 500; margin: 34px 0 10px; }
+p { max-width: 74ch; margin-bottom: 12px; font-size: 14.5px; line-height: 1.7; }
+p.tight { margin-bottom: 6px; }
+
+/* ============================================================
+   KPI ROW
+   ============================================================ */
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin: 28px 0 8px; }
+.kpi-row > * { min-width: 0; }
+.kpi-card {
+  background: var(--surface-elevated); border: 1px solid var(--border);
+  border-radius: 10px; padding: 18px 16px;
+  box-shadow: 0 2px 8px color-mix(in oklab, var(--foreground) 6%, transparent);
+}
+.kpi-card__value {
+  font-family: var(--font-display); font-size: 32px; font-weight: 500;
+  letter-spacing: -0.5px; line-height: 1.1; font-variant-numeric: tabular-nums;
+}
+.kpi-card__value.sm { font-size: 24px; }
+.kpi-card__label {
+  font-family: var(--font-mono); font-size: 9.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 1.4px; color: var(--text-dim); margin-top: 6px;
+}
+
+/* ============================================================
+   CARDS
+   ============================================================ */
+.ve-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 18px 20px; position: relative; min-width: 0;
+}
+.ve-card--hero {
+  background: color-mix(in oklab, var(--surface) 92%, var(--primary) 8%);
+  border-color: color-mix(in oklab, var(--border) 45%, var(--primary) 55%);
+  box-shadow: 0 4px 20px color-mix(in oklab, var(--primary) 10%, transparent);
+}
+.ve-card--recessed { background: var(--muted); border-color: transparent; }
+.ve-card__label {
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 1.5px; color: var(--teal);
+  margin-bottom: 10px; display: flex; align-items: center; gap: 8px;
+}
+.ve-card__label::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.ve-card__label--amber { color: var(--amber); }
+.ve-card__label--violet { color: var(--primary); }
+.ve-card__label--red { color: var(--red); }
+.ve-card h4 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+.ve-card p { font-size: 13.5px; color: var(--text-dim); margin-bottom: 0; line-height: 1.6; }
+.ve-card p + p { margin-top: 8px; }
+
+.card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin: 20px 0; }
+.card-grid > * { min-width: 0; }
+.comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+.comparison > * { min-width: 0; overflow-wrap: break-word; }
+@media (max-width: 900px) { .comparison { grid-template-columns: 1fr; } }
+
+.node-list { list-style: none; padding: 0; margin: 10px 0 0; font-size: 13px; line-height: 1.75; }
+.node-list li { padding-left: 15px; position: relative; color: var(--text-dim); }
+.node-list li::before { content: '›'; color: var(--text-dim); font-weight: 600; position: absolute; left: 0; }
+
+/* ============================================================
+   DIAGRAM SHELL / MERMAID
+   ============================================================ */
+.diagram-shell { position: relative; margin: 24px 0; }
+.diagram-shell__hint {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
+  margin-bottom: 8px; opacity: 0.75;
+}
+.mermaid-wrap {
+  position: relative; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 32px 24px; overflow: auto; cursor: grab;
+  display: flex; justify-content: center; align-items: center; min-height: 400px;
+}
+.mermaid-wrap.is-panning { cursor: grabbing; user-select: none; }
+.zoom-controls {
+  position: absolute; top: 8px; right: 8px; display: flex; gap: 2px; z-index: 10;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 2px;
+}
+.zoom-controls button {
+  width: 28px; height: 28px; border: none; background: transparent; color: var(--text-dim);
+  font-family: var(--font-mono); font-size: 14px; cursor: pointer; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.zoom-controls button:hover { background: var(--muted); color: var(--text); }
+.mermaid-viewport { position: relative; overflow: hidden; width: 100%; height: 100%; min-height: 300px; }
+.mermaid-canvas { position: absolute; top: 0; left: 0; }
+.zoom-label { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); padding: 0 6px; white-space: nowrap; }
+
+.mermaid .nodeLabel { font-family: var(--font-sans) !important; font-size: 15px !important; }
+.mermaid .edgeLabel { font-family: var(--font-mono) !important; font-size: 12px !important; }
+.mermaid .messageText { font-family: var(--font-mono) !important; font-size: 13px !important; }
+.mermaid .node rect, .mermaid .node polygon { stroke-width: 1.5px !important; }
+
+.diagram-caption {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
+  text-align: center; margin-top: 10px;
+}
+.legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; justify-content: center; }
+.legend-item { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--text-dim); }
+.legend-swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+/* ============================================================
+   TABLES
+   ============================================================ */
+.table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin: 20px 0; }
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 13.5px; line-height: 1.55; }
+.data-table th {
+  background: var(--muted); font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); text-align: left;
+  padding: 12px 16px; border-bottom: 2px solid var(--border); white-space: nowrap;
+}
+.data-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); vertical-align: top; color: var(--text); }
+.data-table .wide { min-width: 220px; max-width: 560px; color: var(--text-dim); }
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table tbody tr { transition: background 0.15s ease; }
+.data-table tbody tr:hover { background: var(--muted); }
+.data-table code { white-space: nowrap; }
+.data-table strong { font-weight: 600; }
+
+.status {
+  display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono);
+  font-size: 10.5px; font-weight: 600; padding: 3px 9px; border-radius: 6px;
+  white-space: nowrap; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.status--must { background: var(--green-dim); color: var(--green); }
+.status--should { background: var(--teal-dim); color: var(--teal); }
+.status--may { background: var(--gold-dim); color: var(--gold); }
+.status--major { background: var(--red-dim); color: var(--red); }
+.status--medium { background: var(--gold-dim); color: var(--gold); }
+.status--minor { background: var(--muted); color: var(--text-dim); }
+.status--info { background: var(--accent-dim); color: var(--primary); }
+
+/* ============================================================
+   CODE
+   ============================================================ */
+.code-file { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 16px 0; }
+.code-file__header {
+  display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+  background: var(--muted); border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.code-file__body {
+  font-family: var(--font-mono); font-size: 12.5px; line-height: 1.65;
+  padding: 16px 18px; background: var(--code-bg); color: var(--text);
+  white-space: pre-wrap; word-break: break-word; max-height: 480px; overflow: auto;
+}
+.kw { color: var(--primary); } .fn { color: var(--amber); }
+.str { color: var(--green); } .cm { color: var(--text-dim); font-style: italic; }
+.num { color: var(--gold); }
+
+/* ============================================================
+   RECORD BYTE STRIP
+   ============================================================ */
+.strip-scroll { overflow-x: auto; padding-bottom: 4px; }
+.strip { display: flex; gap: 4px; min-width: 560px; margin: 8px 0 2px; }
+.strip__seg {
+  border: 1.5px solid var(--border); border-radius: 7px; padding: 12px 10px;
+  text-align: center; background: var(--surface); font-family: var(--font-mono);
+  font-size: 11px; line-height: 1.4; min-width: 0;
+}
+.strip__seg b { display: block; font-weight: 600; font-size: 11.5px; color: var(--text); }
+.strip__seg span { color: var(--text-dim); font-size: 10px; }
+.strip__seg--enc { background: var(--accent-dim); border-color: var(--primary); }
+.strip__seg--aad { background: var(--gold-dim); border-color: var(--gold); }
+.strip__seg--tag { background: var(--green-dim); border-color: var(--green); }
+.strip__label {
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 1.4px; color: var(--text-dim); margin-top: 18px;
+}
+.strip__label:first-of-type { margin-top: 4px; }
+
+/* ============================================================
+   CALLOUTS
+   ============================================================ */
+.callout {
+  padding: 16px 20px; border-radius: 8px; border-left: 4px solid var(--callout-border);
+  background: var(--callout-bg); margin: 24px 0; max-width: 84ch;
+}
+.callout--info { --callout-border: var(--primary); --callout-bg: color-mix(in oklab, var(--primary) 8%, transparent); }
+.callout--teal { --callout-border: var(--teal); --callout-bg: color-mix(in oklab, var(--teal) 9%, transparent); }
+.callout--warning { --callout-border: var(--gold); --callout-bg: color-mix(in oklab, var(--gold) 11%, transparent); }
+.callout--danger { --callout-border: var(--red); --callout-bg: color-mix(in oklab, var(--red) 9%, transparent); }
+.callout__title { font-weight: 600; margin-bottom: 6px; color: var(--callout-border); font-size: 14.5px; }
+.callout p { font-size: 13.5px; color: var(--text-dim); margin-bottom: 0; max-width: none; }
+.callout p + p { margin-top: 8px; }
+.callout__ref { font-family: var(--font-mono); font-size: 11px; color: var(--callout-border); display: block; margin-top: 10px; }
+.callout ul { padding-left: 1.5em; margin: 8px 0 0; font-size: 13.5px; color: var(--text-dim); }
+
+/* ============================================================
+   COLLAPSIBLE
+   ============================================================ */
+details.collapsible { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 16px 0; background: var(--surface); }
+details.collapsible summary {
+  padding: 14px 20px; background: var(--surface); font-family: var(--font-mono);
+  font-size: 12px; font-weight: 600; cursor: pointer; list-style: none;
+  display: flex; align-items: center; gap: 8px; color: var(--text); transition: background 0.15s ease;
+}
+details.collapsible summary:hover { background: var(--muted); }
+details.collapsible summary::-webkit-details-marker { display: none; }
+details.collapsible summary::before { content: '▸'; font-size: 11px; color: var(--primary); transition: transform 0.15s ease; }
+details.collapsible[open] summary::before { transform: rotate(90deg); }
+details.collapsible .collapsible__body { padding: 16px 20px; border-top: 1px solid var(--border); font-size: 13.5px; line-height: 1.65; color: var(--text-dim); }
+details.collapsible .collapsible__body ul { padding-left: 1.5em; margin: 8px 0 0; }
+
+footer {
+  margin-top: 72px; padding-top: 22px; border-top: 1px solid var(--border);
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 1000px) {
+  body { padding: 0 20px 40px; padding-top: 0; }
+  .wrap { grid-template-columns: 1fr; }
+  .toc {
+    position: sticky; top: 0; z-index: 200; max-height: none;
+    display: flex; gap: 4px; align-items: center; overflow-x: auto;
+    background: var(--bg); border-bottom: 1px solid var(--border);
+    padding: 10px 20px; margin: 0 -20px; grid-row: auto;
+  }
+  .toc::-webkit-scrollbar { display: none; }
+  .toc-title { display: none; }
+  .toc a {
+    white-space: nowrap; flex-shrink: 0; border-left: none;
+    border-bottom: 2px solid transparent; border-radius: 4px 4px 0 0;
+    padding: 6px 10px; font-size: 10.5px;
+  }
+  .toc a.active { border-left: none; border-bottom-color: var(--primary); background: var(--surface); }
+  .main { padding-top: 24px; }
+  .sec-head { scroll-margin-top: 58px; font-size: 22px; }
+  h1 { font-size: 32px; }
+  .mermaid-wrap { padding: 20px 12px; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <nav class="toc" id="toc">
+    <div class="toc-title">Contents</div>
+    <a href="#s1">1. What changed</a>
+    <a href="#s2">2. Handshake flow</a>
+    <a href="#s3">3. Message reference</a>
+    <a href="#s4">4. Key schedule</a>
+    <a href="#s5">5. Record layer</a>
+    <a href="#s6">6. Resumption &amp; 0-RTT</a>
+    <a href="#s7">7. Removed features</a>
+    <a href="#s8">8. Downgrade defense</a>
+  </nav>
+
+  <div class="main">
+
+    <h1 class="animate" style="--i:0">TLS 1.3</h1>
+    <p class="subtitle animate" style="--i:1">RFC 8446 &middot; E. Rescorla &middot; August 2018 &middot; obsoletes RFC 5246</p>
+
+    <p class="hero-lede animate" style="--i:2">
+      Not TLS 1.2 with better ciphers — a redesign that deletes every mode that could be misused,
+      and folds key exchange into the first message so the handshake finishes in one round trip.
+    </p>
+
+    <div class="kpi-row">
+      <div class="kpi-card" style="--i:0"><div class="kpi-card__value">1</div><div class="kpi-card__label">round trip to first byte</div></div>
+      <div class="kpi-card" style="--i:1"><div class="kpi-card__value">0</div><div class="kpi-card__label">round trips on resume</div></div>
+      <div class="kpi-card" style="--i:2"><div class="kpi-card__value">5</div><div class="kpi-card__label">cipher suites, total</div></div>
+      <div class="kpi-card" style="--i:3"><div class="kpi-card__value sm">AEAD</div><div class="kpi-card__label">only encryption mode</div></div>
+      <div class="kpi-card" style="--i:4"><div class="kpi-card__value sm">100%</div><div class="kpi-card__label">forward-secret key exchange</div></div>
+    </div>
+
+
+    <!-- ================= 1 ================= -->
+    <h2 class="sec-head" id="s1"><span class="num">01</span> What changed <span class="ref">§1.2, §2</span></h2>
+
+    <p class="description">
+      The pivotal change is that <strong>the client guesses</strong>. Rather than waiting for the server to
+      announce which key-exchange group it supports, the client sends a Diffie–Hellman public key in its very
+      first message. If the guess is right — and it nearly always is — both sides compute a shared secret
+      immediately, and every message after the server's first reply is encrypted.
+    </p>
+
+    <div class="comparison">
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--red">TLS 1.2 &mdash; two round trips</div>
+        <p><strong>RTT 1:</strong> ClientHello → ServerHello + Certificate + ServerKeyExchange → ClientKeyExchange + ChangeCipherSpec + Finished.</p>
+        <p><strong>RTT 2:</strong> server Finished, then data.</p>
+        <ul class="node-list">
+          <li>Certificate travels in cleartext</li>
+          <li>Static RSA mode → no forward secrecy</li>
+          <li>MAC-then-encrypt CBC → padding oracles</li>
+          <li>Compression → CRIME</li>
+        </ul>
+      </div>
+      <div class="ve-card ve-card--hero">
+        <div class="ve-card__label ve-card__label--violet">TLS 1.3 &mdash; one round trip</div>
+        <p><strong>RTT 1:</strong> ClientHello with a key share → ServerHello with the matching share, then <em>everything else encrypted</em>.</p>
+        <p>The client's reply carries its Finished and can be followed immediately by application data.</p>
+        <ul class="node-list">
+          <li>Certificate encrypted</li>
+          <li>Ephemeral (EC)DHE only → always forward-secret</li>
+          <li>AEAD only → one-pass authenticated encryption</li>
+          <li>Compression removed entirely</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout callout--teal">
+      <div class="callout__title">Forward secrecy, briefly</div>
+      <p>
+        Each connection generates a throwaway Diffie–Hellman key pair and discards it afterwards. An attacker
+        who records the encrypted traffic and later steals the server's long-term private key still cannot
+        decrypt it — that key only <em>signs</em>, it never encrypts the session. TLS 1.2's static-RSA mode
+        lacked this property; TLS 1.3 deleted the mode rather than hardening it.
+      </p>
+      <span class="callout__ref">§1.2 — "all public-key based key exchange mechanisms now provide forward secrecy"</span>
+    </div>
+
+
+    <!-- ================= 2 ================= -->
+    <h2 class="sec-head" id="s2"><span class="num">02</span> The full handshake <span class="ref">§2, §4.1–4.4</span></h2>
+
+    <p class="description">
+      Three phases in one round trip: key exchange (cleartext by necessity), server parameters and
+      authentication (encrypted under handshake keys), then application data (encrypted under application keys).
+      Braces <code>{ }</code> mark handshake-key encryption; brackets <code>[ ]</code> mark application-key encryption.
+    </p>
+
+    <section class="diagram-shell animate" style="--i:0">
+      <p class="diagram-shell__hint">Ctrl/Cmd + wheel to zoom. Scroll to pan. Drag to pan when zoomed. Double-click to fit.</p>
+      <div class="mermaid-wrap">
+        <div class="zoom-controls">
+          <button type="button" data-action="zoom-in" title="Zoom in">+</button>
+          <button type="button" data-action="zoom-out" title="Zoom out">&minus;</button>
+          <button type="button" data-action="zoom-fit" title="Smart fit">&#8634;</button>
+          <button type="button" data-action="zoom-one" title="1:1 zoom">1:1</button>
+          <button type="button" data-action="zoom-expand" title="Open full size">&#x26F6;</button>
+          <span class="zoom-label">Loading...</span>
+        </div>
+        <div class="mermaid-viewport"><div class="mermaid mermaid-canvas"></div></div>
+      </div>
+      <script type="text/plain" class="diagram-source">
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+
+    Note over C,S: Phase 1 — key exchange (cleartext)
+    C->>S: ClientHello + key_share + supported_versions + signature_algorithms
+    S->>C: ServerHello + key_share + supported_versions
+    Note over C,S: shared secret computed — handshake traffic keys derived
+
+    Note over C,S: Phase 2 — server parameters + auth (encrypted)
+    S->>C: {EncryptedExtensions}
+    S-->>C: {CertificateRequest} — optional, client auth
+    S->>C: {Certificate}
+    S->>C: {CertificateVerify}
+    S->>C: {Finished}
+    S-->>C: [Application Data] — server may start early
+
+    Note over C,S: Phase 3 — client auth + application data
+    C-->>S: {Certificate} {CertificateVerify} — only if requested
+    C->>S: {Finished}
+    C->>S: [Application Data]
+    S->>C: [Application Data]
+    S-->>C: {NewSessionTicket} — resumption ticket, post-handshake
+      </script>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--text-dim)"></div> solid = always sent</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--gold)"></div> dashed = optional / situational</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--primary)"></div> { } handshake keys</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--green)"></div> [ ] application keys</div>
+      </div>
+      <p class="diagram-caption">§2, Figure 1 — the full 1-RTT handshake</p>
+    </section>
+
+    <div class="callout callout--warning">
+      <div class="callout__title">When the guess is wrong: HelloRetryRequest</div>
+      <p>
+        If the client offered no <code>key_share</code> for a group the server accepts, the server replies with
+        <code>HelloRetryRequest</code> and the client re-sends its ClientHello with the requested group. That costs
+        the extra round trip TLS 1.3 normally avoids — which is why clients ship key shares for the groups servers
+        actually use (X25519, P-256). Structurally, HelloRetryRequest <em>is</em> a ServerHello, distinguished only
+        by a fixed sentinel value in its <code>random</code> field.
+      </p>
+      <span class="callout__ref">§4.1.4</span>
+    </div>
+
+
+    <!-- ================= 3 ================= -->
+    <h2 class="sec-head" id="s3"><span class="num">03</span> Message reference <span class="ref">§4.1–4.6</span></h2>
+
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>Message</th><th>Sender</th><th class="wide">What it actually does</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>ClientHello</code></td><td><span class="status status--info">client</span></td>
+              <td class="wide">Offers versions, cipher suites, and — critically — one or more <code>key_share</code> entries: real DH public keys for groups the client guesses the server accepts. Carries a 32-byte random and the extensions driving everything downstream.</td>
+            </tr>
+            <tr>
+              <td><code>ServerHello</code></td><td><span class="status status--info">server</span></td>
+              <td class="wide">Picks one cipher suite and one <code>key_share</code>. The last cleartext handshake message; from here both sides hold the shared secret.</td>
+            </tr>
+            <tr>
+              <td><code>HelloRetryRequest</code></td><td><span class="status status--medium">server</span></td>
+              <td class="wide">Sent in place of ServerHello when the client guessed the wrong group. Costs one extra round trip.</td>
+            </tr>
+            <tr>
+              <td><code>EncryptedExtensions</code></td><td><span class="status status--info">server</span></td>
+              <td class="wide"><strong>New in 1.3.</strong> Everything not needed to establish keys moves here so it can be encrypted — ALPN, SNI acknowledgement, <code>early_data</code>, supported groups.</td>
+            </tr>
+            <tr>
+              <td><code>CertificateRequest</code></td><td><span class="status status--medium">server</span></td>
+              <td class="wide">Requests client authentication. Now carries extensions rather than a fixed field list.</td>
+            </tr>
+            <tr>
+              <td><code>Certificate</code></td><td><span class="status status--info">both</span></td>
+              <td class="wide">The certificate chain, encrypted. Each entry carries its own extensions — OCSP stapling becomes per-certificate instead of one global blob.</td>
+            </tr>
+            <tr>
+              <td><code>CertificateVerify</code></td><td><span class="status status--info">both</span></td>
+              <td class="wide">Proves possession of the private key by signing a hash of the whole handshake so far. <strong>This is what authenticates the peer</strong> — the certificate alone proves nothing.</td>
+            </tr>
+            <tr>
+              <td><code>Finished</code></td><td><span class="status status--info">both</span></td>
+              <td class="wide">HMAC over the transcript using a key derived from the handshake secret. Proves both sides saw an identical message sequence. Mandatory in both directions.</td>
+            </tr>
+            <tr>
+              <td><code>NewSessionTicket</code></td><td><span class="status status--should">server</span></td>
+              <td class="wide">Post-handshake. Issues a resumption ticket — a PSK identity for future 0-RTT or resumed connections.</td>
+            </tr>
+            <tr>
+              <td><code>KeyUpdate</code></td><td><span class="status status--should">both</span></td>
+              <td class="wide">Post-handshake. Ratchets the application traffic secret forward so long-lived connections don't exceed AEAD key-usage limits.</td>
+            </tr>
+            <tr>
+              <td><code>EndOfEarlyData</code></td><td><span class="status status--should">client</span></td>
+              <td class="wide">Marks the end of 0-RTT data and the switch to handshake keys.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <h3>The two proofs at the end of every handshake</h3>
+
+    <div class="code-file">
+      <div class="code-file__header">§4.4.3 — what CertificateVerify signs</div>
+<pre class="code-file__body"><code><span class="cm">// The content is deliberately prefixed so a TLS signature can never be mistaken
+// for a signature over some other protocol's data (cross-protocol attacks).</span>
+
+<span class="num">0x20</span> repeated <span class="num">64</span> times            <span class="cm">// 64 space characters</span>
+<span class="str">"TLS 1.3, server CertificateVerify"</span>   <span class="cm">// or "...client CertificateVerify"</span>
+<span class="num">0x00</span>                              <span class="cm">// separator</span>
+Transcript-Hash(Handshake Context, Certificate)</code></pre>
+    </div>
+
+    <div class="code-file">
+      <div class="code-file__header">§4.4.4 — Finished</div>
+<pre class="code-file__body"><code>finished_key = <span class="fn">HKDF-Expand-Label</span>(BaseKey, <span class="str">"finished"</span>, <span class="str">""</span>, Hash.length)
+
+verify_data  = <span class="fn">HMAC</span>(finished_key,
+                    <span class="fn">Transcript-Hash</span>(Handshake Context, Certificate*, CertificateVerify*))</code></pre>
+    </div>
+
+
+    <!-- ================= 4 ================= -->
+    <h2 class="sec-head" id="s4"><span class="num">04</span> The key schedule <span class="ref">§7.1</span></h2>
+
+    <p class="description">
+      Every key TLS 1.3 ever uses comes out of one ladder. Two primitives do all the work.
+      <strong>HKDF-Extract</strong> takes messy input — a Diffie–Hellman result, a pre-shared key — and condenses
+      it into a uniform secret. <strong>HKDF-Expand-Label</strong> stretches that secret into as many distinct keys
+      as needed; different labels yield provably unrelated keys from the same parent.
+    </p>
+
+    <section class="diagram-shell animate" style="--i:0">
+      <p class="diagram-shell__hint">Ctrl/Cmd + wheel to zoom. Drag to pan. Double-click to fit. ⛶ opens full size.</p>
+      <div class="mermaid-wrap">
+        <div class="zoom-controls">
+          <button type="button" data-action="zoom-in" title="Zoom in">+</button>
+          <button type="button" data-action="zoom-out" title="Zoom out">&minus;</button>
+          <button type="button" data-action="zoom-fit" title="Smart fit">&#8634;</button>
+          <button type="button" data-action="zoom-one" title="1:1 zoom">1:1</button>
+          <button type="button" data-action="zoom-expand" title="Open full size">&#x26F6;</button>
+          <span class="zoom-label">Loading...</span>
+        </div>
+        <div class="mermaid-viewport"><div class="mermaid mermaid-canvas"></div></div>
+      </div>
+      <script type="text/plain" class="diagram-source">
+flowchart TD
+    PSK["PSK<br/>or all-zero string<br/>if no resumption"]:::input
+    DHE["(EC)DHE shared secret<br/>from the two key_shares"]:::input
+    ZERO["0<br/>no new input remains"]:::input
+
+    X1(["HKDF-Extract"]):::op
+    X2(["HKDF-Extract"]):::op
+    X3(["HKDF-Extract"]):::op
+
+    ES["Early Secret"]:::secret
+    HS["Handshake Secret"]:::secret
+    MS["Master Secret"]:::secret
+
+    D1["Derive-Secret · 'derived'"]:::derive
+    D2["Derive-Secret · 'derived'"]:::derive
+
+    B1["binder_key<br/><small>proves PSK possession</small>"]:::out0
+    B2["client_early_traffic_secret<br/><small>encrypts 0-RTT data</small>"]:::out0
+    B3["early_exporter_master_secret"]:::out0
+
+    H1["client_handshake_traffic_secret"]:::out1
+    H2["server_handshake_traffic_secret<br/><small>protects the certificate</small>"]:::out1
+
+    M1["client_application_traffic_secret_0"]:::out2
+    M2["server_application_traffic_secret_0"]:::out2
+    M3["exporter_master_secret"]:::out2
+    M4["resumption_master_secret<br/><small>seeds every future ticket</small>"]:::out2
+
+    PSK --> X1 --> ES
+    ES --> B1
+    ES --> B2
+    ES --> B3
+    ES --> D1 --> X2
+    DHE --> X2 --> HS
+    HS --> H1
+    HS --> H2
+    HS --> D2 --> X3
+    ZERO --> X3 --> MS
+    MS --> M1
+    MS --> M2
+    MS --> M3
+    MS --> M4
+
+    classDef input fill:#fdf1e3,stroke:#c25e00,stroke-width:1.5px,color:#3a2a14
+    classDef op fill:#e9e6f7,stroke:#6420cf,stroke-width:1.5px,color:#221a3a
+    classDef secret fill:#ded8f5,stroke:#6420cf,stroke-width:2.5px,color:#221a3a
+    classDef derive fill:#f2f2f6,stroke:#9a9aa8,stroke-width:1.2px,color:#4f5261
+    classDef out0 fill:#fdf6e3,stroke:#9c7400,stroke-width:1.5px,color:#3a3014
+    classDef out1 fill:#dff2ef,stroke:#00776f,stroke-width:1.5px,color:#123330
+    classDef out2 fill:#ddf2e5,stroke:#00753c,stroke-width:1.5px,color:#123322
+      </script>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--amber)"></div> input keying material</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--primary)"></div> extract stage &amp; secret</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--gold)"></div> early / 0-RTT outputs</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--teal)"></div> handshake traffic</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--green)"></div> application traffic</div>
+      </div>
+      <p class="diagram-caption">§7.1 — the key schedule, top to bottom</p>
+    </section>
+
+    <div class="card-grid">
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--amber">Rung 1 — Early Secret</div>
+        <p>Exists only so resumption and 0-RTT have something to derive from. On a fresh connection the input is a string of zero bytes and every output here goes unused.</p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label">Rung 2 — Handshake Secret</div>
+        <p>The first secret depending on fresh ephemeral material from <em>both</em> parties. This is the rung that delivers forward secrecy, and it is available the instant ServerHello lands.</p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--violet">Rung 3 — Master Secret</div>
+        <p>Derived once the transcript is complete, so every application key is bound to the exact messages both sides exchanged. Tampering anywhere upstream yields different keys and the connection fails.</p>
+      </div>
+    </div>
+
+    <div class="code-file">
+      <div class="code-file__header">§7.1 — the two derivation functions</div>
+<pre class="code-file__body"><code><span class="fn">HKDF-Expand-Label</span>(Secret, Label, Context, Length) =
+     <span class="fn">HKDF-Expand</span>(Secret, HkdfLabel, Length)
+
+<span class="kw">struct</span> {
+    <span class="kw">uint16</span> length          = Length;
+    <span class="kw">opaque</span> label&lt;7..255&gt;   = <span class="str">"tls13 "</span> + Label;   <span class="cm">// prefix isolates TLS 1.3 keys</span>
+    <span class="kw">opaque</span> context&lt;0..255&gt; = Context;
+} HkdfLabel;
+
+<span class="fn">Derive-Secret</span>(Secret, Label, Messages) =
+     <span class="fn">HKDF-Expand-Label</span>(Secret, Label, <span class="fn">Transcript-Hash</span>(Messages), Hash.length)</code></pre>
+    </div>
+
+    <div class="comparison">
+      <div class="ve-card ve-card--recessed">
+        <h4>From traffic secret to actual keys</h4>
+        <p>A traffic secret is not itself an encryption key. Each direction expands its secret twice:</p>
+        <p><code>write_key = HKDF-Expand-Label(S, "key", "", key_len)</code><br>
+           <code>write_iv&nbsp; = HKDF-Expand-Label(S, "iv", "", iv_len)</code></p>
+      </div>
+      <div class="ve-card ve-card--recessed">
+        <h4>Ratcheting forward (KeyUpdate)</h4>
+        <p>Long connections rotate keys without a new handshake:</p>
+        <p><code>secret_N+1 = HKDF-Expand-Label(secret_N, "traffic upd", "", Hash.len)</code></p>
+        <p>One-way — compromising <code>secret_N+1</code> does not roll back to <code>secret_N</code>.</p>
+      </div>
+    </div>
+
+
+    <!-- ================= 5 ================= -->
+    <h2 class="sec-head" id="s5"><span class="num">05</span> The record layer <span class="ref">§5.1–5.5</span></h2>
+
+    <p class="description">
+      Every TLS 1.3 cipher suite is AEAD — <em>authenticated encryption with associated data</em>. One primitive
+      encrypts and authenticates in a single pass, eliminating the whole class of MAC-then-encrypt padding-oracle
+      bugs that produced BEAST, Lucky13 and POODLE. The record format also hides more: the real content type moves
+      <em>inside</em> the encrypted blob, and the outer header always claims to be <code>application_data</code>.
+    </p>
+
+    <div class="ve-card animate" style="--i:0">
+      <div class="strip-scroll">
+        <div class="strip__label">Before encryption — TLSInnerPlaintext</div>
+        <div class="strip">
+          <div class="strip__seg strip__seg--enc" style="flex:5"><b>content</b><span>the actual plaintext</span></div>
+          <div class="strip__seg strip__seg--enc" style="flex:1.3"><b>type</b><span>real ContentType</span></div>
+          <div class="strip__seg strip__seg--enc" style="flex:2"><b>zeros[]</b><span>optional padding — masks true length</span></div>
+        </div>
+
+        <div class="strip__label">After encryption — TLSCiphertext on the wire</div>
+        <div class="strip">
+          <div class="strip__seg strip__seg--aad" style="flex:1.7"><b>opaque_type</b><span>always 23 = application_data</span></div>
+          <div class="strip__seg strip__seg--aad" style="flex:1.7"><b>legacy_version</b><span>always 0x0303 — a lie for middleboxes</span></div>
+          <div class="strip__seg strip__seg--aad" style="flex:1.1"><b>length</b><span>uint16</span></div>
+          <div class="strip__seg strip__seg--enc" style="flex:5"><b>encrypted_record</b><span>AEAD ciphertext of the block above</span></div>
+          <div class="strip__seg strip__seg--tag" style="flex:1.4"><b>auth tag</b><span>appended by the AEAD</span></div>
+        </div>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--gold)"></div> header — authenticated as associated data, not hidden</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--primary)"></div> encrypted</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:var(--green)"></div> integrity tag</div>
+      </div>
+      <p class="diagram-caption">§5.2 — the true content type is encrypted; only the disguised header is visible</p>
+    </div>
+
+    <div class="comparison">
+      <div class="ve-card">
+        <div class="ve-card__label">Per-record nonce &nbsp;§5.3</div>
+        <p>No nonce is transmitted. Each side keeps a 64-bit sequence counter, left-pads it with zeros to the IV length, and XORs it with the static <code>write_iv</code> from the key schedule. Identical counters on both ends produce identical nonces without spending a byte on the wire.</p>
+        <p>The counter resets to zero on every key change and must never wrap — which is what KeyUpdate is for.</p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--amber">Key usage limits &nbsp;§5.5</div>
+        <p>AEAD constructions degrade after enough records under one key. RFC 8446 gives concrete ceilings — for AES-GCM, roughly 2<sup>24.5</sup> records before a KeyUpdate is required. These are real cryptographic bounds, not formalities.</p>
+      </div>
+    </div>
+
+    <h3>The five cipher suites</h3>
+    <p class="description">
+      A TLS 1.3 cipher suite names only the AEAD and the hash. Key exchange and signature algorithm are negotiated
+      separately by extension, so the combinatorial explosion of TLS 1.2 suite names disappears.
+    </p>
+
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Suite</th><th>Support</th><th class="wide">Notes</th></tr></thead>
+          <tbody>
+            <tr><td><code>TLS_AES_128_GCM_SHA256</code></td><td><span class="status status--must">must</span></td><td class="wide">The mandatory baseline. Every conforming implementation supports it.</td></tr>
+            <tr><td><code>TLS_AES_256_GCM_SHA384</code></td><td><span class="status status--should">should</span></td><td class="wide">Larger key and hash for higher security margins.</td></tr>
+            <tr><td><code>TLS_CHACHA20_POLY1305_SHA256</code></td><td><span class="status status--should">should</span></td><td class="wide">Fast and constant-time in software — preferred where there is no AES hardware acceleration, which is most mobile.</td></tr>
+            <tr><td><code>TLS_AES_128_CCM_SHA256</code></td><td><span class="status status--may">may</span></td><td class="wide">Constrained and embedded environments.</td></tr>
+            <tr><td><code>TLS_AES_128_CCM_8_SHA256</code></td><td><span class="status status--may">may</span></td><td class="wide">Truncated 8-byte tag. Saves bytes at the cost of integrity strength. IoT-oriented.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+
+    <!-- ================= 6 ================= -->
+    <h2 class="sec-head" id="s6"><span class="num">06</span> Resumption &amp; 0-RTT <span class="ref">§2.2, §2.3, §4.6.1, §8</span></h2>
+
+    <p class="description">
+      TLS 1.3 collapses session IDs and session tickets into a single mechanism: the pre-shared key. After a
+      handshake completes, the server sends one or more <code>NewSessionTicket</code> messages, each a PSK identity
+      the client can present later. Resuming with a PSK <em>and</em> a fresh key share gives a normal 1-RTT handshake
+      with forward secrecy restored. Resuming with the PSK alone lets the client send data in its first flight —
+      0-RTT — at a real security cost.
+    </p>
+
+    <section class="diagram-shell animate" style="--i:0">
+      <p class="diagram-shell__hint">Ctrl/Cmd + wheel to zoom. Drag to pan. Double-click to fit.</p>
+      <div class="mermaid-wrap">
+        <div class="zoom-controls">
+          <button type="button" data-action="zoom-in" title="Zoom in">+</button>
+          <button type="button" data-action="zoom-out" title="Zoom out">&minus;</button>
+          <button type="button" data-action="zoom-fit" title="Smart fit">&#8634;</button>
+          <button type="button" data-action="zoom-one" title="1:1 zoom">1:1</button>
+          <button type="button" data-action="zoom-expand" title="Open full size">&#x26F6;</button>
+          <span class="zoom-label">Loading...</span>
+        </div>
+        <div class="mermaid-viewport"><div class="mermaid mermaid-canvas"></div></div>
+      </div>
+      <script type="text/plain" class="diagram-source">
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+
+    Note over C,S: earlier connection ended with {NewSessionTicket} → client holds a PSK
+
+    C->>S: ClientHello + key_share + pre_shared_key + early_data
+    C->>S: [Early Application Data] — 0-RTT
+    Note over C,S: encrypted under client_early_traffic_secret<br/>no forward secrecy · replayable
+
+    S->>C: ServerHello + key_share + pre_shared_key
+    S->>C: {EncryptedExtensions + early_data} {Finished}
+    Note over C,S: the echoed early_data extension is the server accepting the 0-RTT payload
+
+    C->>S: {EndOfEarlyData} {Finished}
+    Note over C,S: keys now include fresh (EC)DHE — full forward secrecy from here
+    C->>S: [Application Data]
+    S->>C: [Application Data]
+      </script>
+      <p class="diagram-caption">§2.3 — 0-RTT: data rides with the first flight, before the server has said anything</p>
+    </section>
+
+    <div class="callout callout--danger">
+      <div class="callout__title">0-RTT data is replayable. That is a design property, not a bug.</div>
+      <p>
+        Early data is encrypted under a key derived <em>only</em> from the pre-shared key — nothing fresh from the
+        server is mixed in yet. Two consequences follow. First, no forward secrecy: whoever later obtains the PSK
+        can decrypt it. Second, an attacker who captures the early-data flight can replay it verbatim to the same
+        server, or to a different server in the same cluster, and it will be accepted.
+      </p>
+      <p><strong>Rule of thumb:</strong> only send requests you would be comfortable having executed more than once. GET, not POST.</p>
+      <span class="callout__ref">§8 — 0-RTT and Anti-Replay</span>
+    </div>
+
+    <div class="card-grid">
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--red">Mitigation 1 — single-use tickets</div>
+        <p>The server records each ticket and rejects the second use. Effective, but requires shared state across a server fleet.</p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--red">Mitigation 2 — ClientHello recording</div>
+        <p>Hash and store recent ClientHellos within a bounded time window, then reject duplicates. Bounded memory, bounded window.</p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--red">Mitigation 3 — freshness checks</div>
+        <p><code>obfuscated_ticket_age</code> lets the server verify the client's reported elapsed time is plausible, narrowing the replay window.</p>
+      </div>
+    </div>
+
+    <div class="callout callout--info">
+      <div class="callout__title">The PSK binder</div>
+      <p>
+        The <code>pre_shared_key</code> extension must be the last extension in a ClientHello, because it carries an
+        HMAC — the <em>binder</em> — computed over the ClientHello truncated immediately before the binder itself.
+        This proves the client actually possesses the PSK rather than having copied a ticket identity observed on
+        the wire.
+      </p>
+      <span class="callout__ref">§4.2.11.2</span>
+    </div>
+
+
+    <!-- ================= 7 ================= -->
+    <h2 class="sec-head" id="s7"><span class="num">07</span> What was deleted, and why <span class="ref">§1.2</span></h2>
+
+    <p class="description">
+      The most consequential part of RFC 8446 is a list of subtractions. Nearly every major TLS attack of the 2010s
+      traced back to a legacy mode retained for compatibility; TLS 1.3 removed the modes instead of hardening them.
+    </p>
+
+    <div class="table-wrap">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead><tr><th>Removed</th><th>Impact</th><th class="wide">Why</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Static RSA key exchange</strong></td><td><span class="status status--major">major</span></td><td class="wide">Encrypting the premaster secret to the server's long-term key means no forward secrecy — and it powered ROBOT and Bleichenbacher-style oracles. All key exchange is now ephemeral (EC)DHE.</td></tr>
+            <tr><td><strong>Static Diffie–Hellman suites</strong></td><td><span class="status status--major">major</span></td><td class="wide">Same forward-secrecy problem as static RSA.</td></tr>
+            <tr><td><strong>Compression</strong></td><td><span class="status status--major">major</span></td><td class="wide">Compressing before encrypting leaks plaintext through ciphertext length. This was CRIME.</td></tr>
+            <tr><td><strong>Renegotiation</strong></td><td><span class="status status--major">major</span></td><td class="wide">A long history of injection attacks. Replaced by two narrowly-scoped post-handshake messages: KeyUpdate and post-handshake client auth.</td></tr>
+            <tr><td><strong>Non-AEAD ciphers (CBC, RC4)</strong></td><td><span class="status status--major">major</span></td><td class="wide">MAC-then-encrypt CBC produced BEAST, Lucky13 and POODLE. RC4 was simply broken. AEAD only, now.</td></tr>
+            <tr><td><strong>Custom / arbitrary DHE groups</strong></td><td><span class="status status--medium">medium</span></td><td class="wide">Servers offering weak or malicious groups enabled Logjam. Only named, vetted groups remain.</td></tr>
+            <tr><td><strong>RSA PKCS#1 v1.5 signatures</strong></td><td><span class="status status--medium">medium</span></td><td class="wide">Replaced by RSASSA-PSS, which has a proper security proof. v1.5 remains permitted inside certificates for ecosystem reasons.</td></tr>
+            <tr><td><strong>DSA signatures; MD5 &amp; SHA-1 in the handshake</strong></td><td><span class="status status--medium">medium</span></td><td class="wide">Obsolete, and in SHA-1's case collision-vulnerable — SLOTH.</td></tr>
+            <tr><td><strong>ChangeCipherSpec</strong></td><td><span class="status status--minor">minor</span></td><td class="wide">No longer meaningful — key changes are implied by message sequence. Survives only as an ignored dummy record for middlebox compatibility.</td></tr>
+            <tr><td><strong>Session IDs &amp; RFC 5077 tickets</strong></td><td><span class="status status--minor">minor</span></td><td class="wide">Two resumption mechanisms unified into one: PSK.</td></tr>
+            <tr><td><strong>EC point format negotiation</strong></td><td><span class="status status--minor">minor</span></td><td class="wide">One format (uncompressed) is mandated. One less thing to negotiate wrongly.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+
+    <!-- ================= 8 ================= -->
+    <h2 class="sec-head" id="s8"><span class="num">08</span> Downgrade defense <span class="ref">§4.1.3, §4.2.1</span></h2>
+
+    <p class="description">
+      An active attacker who strips the <code>supported_versions</code> extension could try to force both sides down
+      to TLS 1.2 and attack that instead. TLS 1.3 defends with a sentinel hidden in plain sight: a TLS 1.3-capable
+      server that ends up negotiating an older version <strong>must</strong> write a fixed byte string into the last
+      8 bytes of <code>ServerHello.random</code>.
+    </p>
+
+    <div class="code-file">
+      <div class="code-file__header">§4.1.3 — downgrade sentinel values</div>
+<pre class="code-file__body"><code>negotiating TLS <span class="num">1.2</span>       :  <span class="num">44 4F 57 4E 47 52 44 01</span>   <span class="cm">// "DOWNGRD" + 0x01</span>
+negotiating TLS <span class="num">1.1</span> or below:  <span class="num">44 4F 57 4E 47 52 44 00</span>   <span class="cm">// "DOWNGRD" + 0x00</span></code></pre>
+    </div>
+
+    <p class="description">
+      A client that offered TLS 1.3 and sees this sentinel in a supposedly-1.2 response knows the downgrade was not
+      the server's genuine choice, and aborts. Because <code>ServerHello.random</code> is covered by the TLS 1.2
+      Finished MAC, an attacker cannot strip the sentinel without breaking the handshake.
+    </p>
+
+    <div class="callout callout--warning">
+      <div class="callout__title">Version negotiation moved, and records lie about their version</div>
+      <p>
+        The <code>legacy_version</code> field in ClientHello is frozen at <code>0x0303</code> (TLS 1.2) forever,
+        because deployed middleboxes reject anything higher. Real negotiation happens in
+        <code>supported_versions</code>. TLS 1.3 records also always claim to be TLS 1.2 on the wire — a deliberate
+        disguise so middleboxes let them through. This, plus the dummy ChangeCipherSpec record and the echoed
+        <code>legacy_session_id</code>, is what RFC 8446 calls <em>middlebox compatibility mode</em>.
+      </p>
+      <span class="callout__ref">§4.1.2, §4.2.1, Appendix D.4</span>
+    </div>
+
+    <div class="callout callout--teal">
+      <div class="callout__title">Why the transcript hash keeps reappearing</div>
+      <p>
+        Notice the recurring pattern: CertificateVerify signs the transcript, Finished MACs the transcript, and the
+        Master Secret is derived from the transcript. Any modification an attacker makes to any handshake message,
+        anywhere, produces a different hash — and the connection fails at the first check. That is the structural
+        reason the handshake is tamper-evident as a whole rather than message by message.
+      </p>
+      <span class="callout__ref">§4.4.1 — Transcript-Hash</span>
+    </div>
+
+    <details class="collapsible">
+      <summary>Reference map — where to look in RFC 8446</summary>
+      <div class="collapsible__body">
+        <ul>
+          <li><strong>§1.2–1.3</strong> — differences from TLS 1.2; updates that also affect TLS 1.2 implementations</li>
+          <li><strong>§2</strong> — protocol overview: handshake diagrams, HelloRetryRequest, resumption, 0-RTT</li>
+          <li><strong>§3</strong> — presentation language: how to read every <code>struct</code> in the document</li>
+          <li><strong>§4.1</strong> — ClientHello, ServerHello, HelloRetryRequest, version negotiation</li>
+          <li><strong>§4.2</strong> — every extension: supported_versions, key_share, signature_algorithms, pre_shared_key, early_data, cookie</li>
+          <li><strong>§4.3</strong> — EncryptedExtensions, CertificateRequest</li>
+          <li><strong>§4.4</strong> — transcript hash, Certificate, CertificateVerify, Finished</li>
+          <li><strong>§4.6</strong> — NewSessionTicket, post-handshake auth, KeyUpdate</li>
+          <li><strong>§5</strong> — record layer, AEAD protection, nonce, padding, key usage limits</li>
+          <li><strong>§6</strong> — closure and error alerts</li>
+          <li><strong>§7</strong> — key schedule, traffic key updates, (EC)DHE, exporters</li>
+          <li><strong>§8</strong> — 0-RTT and anti-replay</li>
+          <li><strong>§9</strong> — compliance requirements, the mandatory-to-implement set</li>
+          <li><strong>Appendix A</strong> — client and server state machines</li>
+          <li><strong>Appendix B</strong> — protocol data structures and constants, including the cipher suite registry</li>
+          <li><strong>Appendix D</strong> — backward compatibility and middlebox compatibility mode</li>
+          <li><strong>Appendix E</strong> — overview of security properties</li>
+        </ul>
+      </div>
+    </details>
+
+    <details class="collapsible">
+      <summary>Extensions you will actually encounter</summary>
+      <div class="collapsible__body">
+        <ul>
+          <li><code>supported_versions</code> (43) — the real version negotiation</li>
+          <li><code>key_share</code> (51) — the DH public keys that make 1-RTT possible</li>
+          <li><code>signature_algorithms</code> (13) — schemes accepted in CertificateVerify</li>
+          <li><code>signature_algorithms_cert</code> (50) — schemes accepted <em>inside certificates</em>, negotiated separately</li>
+          <li><code>pre_shared_key</code> (41) — resumption identities plus binders; must be the last extension</li>
+          <li><code>psk_key_exchange_modes</code> (45) — whether resumption may include a fresh DH exchange</li>
+          <li><code>early_data</code> (42) — request and accept 0-RTT</li>
+          <li><code>cookie</code> (44) — lets a stateless server carry state across a HelloRetryRequest</li>
+          <li><code>server_name</code> (0), <code>application_layer_protocol_negotiation</code> (16) — carried over from earlier versions, now acknowledged inside EncryptedExtensions</li>
+        </ul>
+      </div>
+    </details>
+
+    <footer>
+      Source: RFC 8446 — <a href="https://datatracker.ietf.org/doc/html/rfc8446">datatracker.ietf.org/doc/html/rfc8446</a> · E. Rescorla, Mozilla · August 2018 · Standards Track
+    </footer>
+
+  </div><!-- /main -->
+</div><!-- /wrap -->
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  import elkLayouts from 'https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk/dist/mermaid-layout-elk.esm.min.mjs';
+
+  const config = {
+    fitPadding: 28, minHeight: 380, maxHeightPx: 1000, maxHeightVh: 0.84,
+    maxInitialZoom: 1.8, minZoom: 0.08, maxZoom: 6.5, zoomStep: 0.14, readabilityFloor: 0.58
+  };
+
+  const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+  let activeDrag = null;
+  addEventListener('mousemove', (e) => activeDrag?.onMove(e));
+  addEventListener('mouseup', () => { activeDrag?.onEnd(); activeDrag = null; });
+
+  const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+
+  /* Plannotator tokens as hex, for Mermaid's color engine */
+  const T = isDark
+    ? { bg:'#22242e', page:'#14151c', text:'#e2e3e9', dim:'#a9abb8', border:'#454857',
+        violet:'#a274f5', violetBg:'#332b52', teal:'#35b3ab', tealBg:'#1e3a3a',
+        gold:'#d4a52a', goldBg:'#3a3320', muted:'#2a2c37' }
+    : { bg:'#ffffff', page:'#f6f6f8', text:'#1a1c24', dim:'#4f5261', border:'#dcdce4',
+        violet:'#6420cf', violetBg:'#ece8fa', teal:'#00776f', tealBg:'#dff2ef',
+        gold:'#9c7400', goldBg:'#fdf6e3', muted:'#e8e8ee' };
+
+  mermaid.registerLayoutLoaders(elkLayouts);
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'base',
+    look: 'classic',
+    themeVariables: {
+      fontFamily: "'Inter', system-ui, sans-serif",
+      fontSize: '15px',
+      background: T.bg,
+      primaryColor: T.violetBg,
+      primaryBorderColor: T.violet,
+      primaryTextColor: T.text,
+      secondaryColor: T.tealBg,
+      secondaryBorderColor: T.teal,
+      secondaryTextColor: T.text,
+      tertiaryColor: T.goldBg,
+      tertiaryBorderColor: T.gold,
+      tertiaryTextColor: T.text,
+      lineColor: T.dim,
+      textColor: T.text,
+      mainBkg: T.violetBg,
+      nodeBorder: T.violet,
+      /* sequence-diagram specifics */
+      actorBkg: T.violetBg,
+      actorBorder: T.violet,
+      actorTextColor: T.text,
+      actorLineColor: T.border,
+      signalColor: T.dim,
+      signalTextColor: T.text,
+      labelBoxBkgColor: T.muted,
+      labelBoxBorderColor: T.border,
+      labelTextColor: T.text,
+      noteBkgColor: T.goldBg,
+      noteTextColor: T.text,
+      noteBorderColor: T.gold,
+      sequenceNumberColor: T.bg
+    }
+  });
+
+  function initDiagram(shell) {
+    const wrap = shell.querySelector('.mermaid-wrap');
+    const viewport = shell.querySelector('.mermaid-viewport');
+    const canvas = shell.querySelector('.mermaid-canvas');
+    const source = shell.querySelector('.diagram-source');
+    const label = shell.querySelector('.zoom-label');
+    if (!wrap || !viewport || !canvas || !source || !label) {
+      console.error('initDiagram: missing required elements in', shell);
+      return;
+    }
+
+    let zoom = 1, fitMode = 'contain', panX = 0, panY = 0, svgW = 0, svgH = 0;
+    let sx = 0, sy = 0, spx = 0, spy = 0, touchDist = 0, touchCx = 0, touchCy = 0;
+
+    function constrainPan() {
+      const vpW = viewport.clientWidth, vpH = viewport.clientHeight;
+      const rW = svgW * zoom, rH = svgH * zoom, pad = config.fitPadding;
+      panX = (rW + pad * 2 <= vpW) ? (vpW - rW) / 2 : clamp(panX, vpW - rW - pad, pad);
+      panY = (rH + pad * 2 <= vpH) ? (vpH - rH) / 2 : clamp(panY, vpH - rH - pad, pad);
+    }
+
+    function applyTransform() {
+      const svg = canvas.querySelector('svg');
+      if (!svg || !svgW) return;
+      constrainPan();
+      svg.style.width = (svgW * zoom) + 'px';
+      svg.style.height = (svgH * zoom) + 'px';
+      canvas.style.transform = `translate(${panX}px, ${panY}px)`;
+      label.textContent = Math.round(zoom * 100) + '% — ' + fitMode;
+    }
+
+    function canPan() {
+      return svgW * zoom + config.fitPadding * 2 > viewport.clientWidth
+          || svgH * zoom + config.fitPadding * 2 > viewport.clientHeight;
+    }
+
+    function computeSmartFit() {
+      const vpW = viewport.clientWidth, vpH = viewport.clientHeight;
+      const aW = Math.max(80, vpW - config.fitPadding * 2);
+      const aH = Math.max(80, vpH - config.fitPadding * 2);
+      const contain = Math.min(aW / svgW, aH / svgH);
+      let z = contain, mode = 'contain';
+      if (contain < config.readabilityFloor) {
+        const chartR = svgH / svgW, vpR = vpH / Math.max(vpW, 1);
+        if (chartR >= vpR) { z = aW / svgW; mode = 'width-priority'; }
+        else { z = aH / svgH; mode = 'height-priority'; }
+      }
+      return { zoom: clamp(z, config.minZoom, config.maxInitialZoom), mode };
+    }
+
+    function fitDiagram() {
+      if (!svgW) return;
+      const fit = computeSmartFit();
+      zoom = fit.zoom; fitMode = fit.mode;
+      panX = (viewport.clientWidth - svgW * zoom) / 2;
+      panY = (viewport.clientHeight - svgH * zoom) / 2;
+      applyTransform();
+    }
+
+    function setOneToOne() {
+      zoom = clamp(1, config.minZoom, config.maxZoom); fitMode = '1:1';
+      panX = (viewport.clientWidth - svgW * zoom) / 2;
+      panY = (viewport.clientHeight - svgH * zoom) / 2;
+      applyTransform();
+    }
+
+    function zoomAround(factor, cx, cy) {
+      const next = clamp(zoom * factor, config.minZoom, config.maxZoom);
+      const ratio = next / zoom;
+      panX = cx - ratio * (cx - panX);
+      panY = cy - ratio * (cy - panY);
+      zoom = next; fitMode = 'custom';
+      applyTransform();
+    }
+
+    function readSvgNaturalSize(svg) {
+      let w = 0, h = 0;
+      if (svg.viewBox?.baseVal?.width > 0) { w = svg.viewBox.baseVal.width; h = svg.viewBox.baseVal.height; }
+      if (!w) { w = parseFloat(svg.getAttribute('width')) || 0; h = parseFloat(svg.getAttribute('height')) || 0; }
+      if (!w) { const b = svg.getBBox(); w = b.width; h = b.height; }
+      if (!w) { const r = svg.getBoundingClientRect(); w = r.width || 1000; h = r.height || 700; }
+      if (!svg.getAttribute('viewBox')) svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      return { w, h };
+    }
+
+    function setAdaptiveHeight() {
+      if (!svgW) return;
+      const usableW = Math.max(280, wrap.getBoundingClientRect().width - 2);
+      const idealH = (svgH / svgW) * usableW + config.fitPadding * 2;
+      const maxVp = Math.floor(innerHeight * config.maxHeightVh);
+      const hardMax = Math.min(config.maxHeightPx, Math.max(config.minHeight + 40, maxVp));
+      wrap.style.height = Math.round(clamp(idealH, config.minHeight, hardMax)) + 'px';
+    }
+
+    function openInNewTab() {
+      const svg = canvas.querySelector('svg');
+      if (!svg) return;
+      const clone = svg.cloneNode(true);
+      clone.style.width = ''; clone.style.height = '';
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Diagram</title><style>
+      body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+      background:${T.page};padding:40px;box-sizing:border-box}
+      svg{max-width:100%;max-height:90vh;height:auto}
+      </style></head><body>${clone.outerHTML}</body></html>`;
+      open(URL.createObjectURL(new Blob([html], { type: 'text/html' })), '_blank');
+    }
+
+    async function render() {
+      try {
+        const code = source.textContent.trim();
+        if (!code) { label.textContent = 'Error: Empty source'; return; }
+        const id = 'diagram-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+        const { svg } = await mermaid.render(id, code);
+        const parsed = new DOMParser().parseFromString(svg, 'text/html');
+        const parsedSvg = parsed.body.querySelector('svg');
+        if (!parsedSvg) { label.textContent = 'Error: No SVG'; return; }
+        canvas.replaceChildren(document.adoptNode(parsedSvg));
+
+        const svgNode = canvas.querySelector('svg');
+        if (!svgNode) { label.textContent = 'Error: No SVG'; return; }
+        const size = readSvgNaturalSize(svgNode);
+        svgW = size.w; svgH = size.h;
+        svgNode.removeAttribute('width');
+        svgNode.removeAttribute('height');
+        svgNode.style.maxWidth = 'none';
+        svgNode.style.display = 'block';
+        setAdaptiveHeight();
+        fitDiagram();
+      } catch (err) {
+        console.error('Mermaid render failed:', err);
+        label.textContent = 'Error: ' + (err.message || 'Render failed');
+      }
+    }
+
+    const actions = {
+      'zoom-in': () => zoomAround(1 + config.zoomStep, viewport.clientWidth / 2, viewport.clientHeight / 2),
+      'zoom-out': () => zoomAround(1 / (1 + config.zoomStep), viewport.clientWidth / 2, viewport.clientHeight / 2),
+      'zoom-fit': fitDiagram,
+      'zoom-one': setOneToOne,
+      'zoom-expand': openInNewTab
+    };
+    Object.entries(actions).forEach(([action, handler]) => {
+      wrap.querySelector(`[data-action="${action}"]`)?.addEventListener('click', handler);
+    });
+
+    viewport.addEventListener('dblclick', fitDiagram);
+
+    viewport.addEventListener('wheel', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const rect = viewport.getBoundingClientRect();
+        const factor = e.deltaY < 0 ? 1 + config.zoomStep : 1 / (1 + config.zoomStep);
+        zoomAround(factor, e.clientX - rect.left, e.clientY - rect.top);
+        return;
+      }
+      if (canPan()) {
+        e.preventDefault();
+        panX -= e.deltaX; panY -= e.deltaY;
+        applyTransform();
+      }
+    }, { passive: false });
+
+    viewport.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.zoom-controls') || !canPan()) return;
+      wrap.classList.add('is-panning');
+      sx = e.clientX; sy = e.clientY; spx = panX; spy = panY;
+      e.preventDefault();
+      activeDrag = {
+        onMove: (ev) => { panX = spx + (ev.clientX - sx); panY = spy + (ev.clientY - sy); applyTransform(); },
+        onEnd: () => wrap.classList.remove('is-panning')
+      };
+    });
+
+    viewport.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        sx = e.touches[0].clientX; sy = e.touches[0].clientY; spx = panX; spy = panY;
+      } else if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        touchDist = Math.sqrt(dx * dx + dy * dy);
+        const r = viewport.getBoundingClientRect();
+        touchCx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left;
+        touchCy = (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top;
+      }
+    }, { passive: true });
+
+    viewport.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 1 && canPan()) {
+        if (touchDist > 0) {
+          sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+          spx = panX; spy = panY; touchDist = 0;
+        }
+        e.preventDefault();
+        panX = spx + (e.touches[0].clientX - sx);
+        panY = spy + (e.touches[0].clientY - sy);
+        applyTransform();
+      } else if (e.touches.length === 2 && touchDist > 0) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        zoomAround(d / touchDist, touchCx, touchCy);
+        touchDist = d;
+      }
+    }, { passive: false });
+
+    new ResizeObserver(() => { if (svgW) { setAdaptiveHeight(); fitDiagram(); } }).observe(wrap);
+
+    render();
+  }
+
+  document.querySelectorAll('.diagram-shell').forEach(initDiagram);
+</script>
+
+<script>
+(function() {
+  const toc = document.getElementById('toc');
+  const links = toc.querySelectorAll('a');
+  const sections = [];
+  links.forEach(link => {
+    const id = link.getAttribute('href').slice(1);
+    const el = document.getElementById(id);
+    if (el) sections.push({ id, el, link });
+  });
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const match = sections.find(s => s.el === entry.target);
+        if (match) {
+          match.link.classList.add('active');
+          if (window.innerWidth <= 1000) {
+            match.link.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }
+        }
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px' });
+
+  sections.forEach(s => observer.observe(s.el));
+
+  links.forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      const id = link.getAttribute('href').slice(1);
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        history.replaceState(null, '', '#' + id);
+      }
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

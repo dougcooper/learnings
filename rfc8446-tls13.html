@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TLS 1.3 — RFC 8446</title>
+<style>
+:root {
+  --background: oklch(0.97 0.005 260);
+  --foreground: oklch(0.18 0.02 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.02 260);
+  --primary: oklch(0.50 0.25 280);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.50 0.18 180);
+  --muted: oklch(0.92 0.01 260);
+  --muted-foreground: oklch(0.40 0.02 260);
+  --accent: oklch(0.60 0.22 50);
+  --destructive: oklch(0.50 0.25 25);
+  --success: oklch(0.45 0.20 150);
+  --warning: oklch(0.55 0.18 85);
+  --border: oklch(0.88 0.01 260);
+  --code-bg: oklch(0.92 0.01 260);
+  --ring: oklch(0.50 0.25 280);
+  --radius: 0.625rem;
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+  --font-display: ui-serif, Georgia, 'Times New Roman', serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: oklch(0.15 0.02 260);
+    --foreground: oklch(0.90 0.01 260);
+    --card: oklch(0.22 0.02 260);
+    --card-foreground: oklch(0.90 0.01 260);
+    --muted: oklch(0.26 0.02 260);
+    --muted-foreground: oklch(0.72 0.02 260);
+    --primary: oklch(0.75 0.18 280);
+    --primary-foreground: oklch(0.15 0.02 260);
+    --accent: oklch(0.70 0.20 60);
+    --secondary: oklch(0.70 0.14 180);
+    --border: oklch(0.35 0.02 260);
+    --code-bg: oklch(0.26 0.02 260);
+    --destructive: oklch(0.65 0.20 25);
+    --success: oklch(0.72 0.17 150);
+    --warning: oklch(0.75 0.15 85);
+  }
+}
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--background);
+  color: var(--foreground);
+  line-height: 1.65;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.container { max-width: 1080px; margin: 0 auto; padding: 64px 24px 96px; }
+
+/* ---------- Header ---------- */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.72rem; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted-foreground);
+}
+header h1 {
+  font-family: var(--font-display);
+  font-size: 2.4rem; font-weight: 500;
+  margin: 10px 0 6px; line-height: 1.15;
+}
+header .subtitle {
+  font-family: var(--font-display);
+  font-size: 1.1rem; color: var(--muted-foreground);
+  font-style: italic; margin-bottom: 26px;
+}
+.prompt-box {
+  background: var(--muted);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 24px;
+}
+.prompt-label {
+  font-family: var(--font-mono); font-size: 0.7rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted-foreground); display: block; margin-bottom: 4px;
+}
+.prompt-box p { font-size: 0.92rem; color: var(--muted-foreground); line-height: 1.55; max-width: 78ch; }
+
+/* ---------- Stats ---------- */
+.summary-strip {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px; margin: 32px 0 0;
+}
+.stat-card {
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  padding: 16px 18px; text-align: center; background: var(--card);
+}
+.stat-value {
+  font-family: var(--font-display); font-size: 1.8rem; font-weight: 500;
+  display: block; color: var(--foreground); line-height: 1.2;
+}
+.stat-label {
+  font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted-foreground); margin-top: 4px; display: block;
+}
+
+/* ---------- Sections ---------- */
+section { margin-top: 72px; }
+.section-header {
+  display: flex; align-items: baseline; gap: 16px;
+  margin-bottom: 24px; padding-bottom: 8px;
+  border-bottom: 1.5px solid var(--border);
+}
+.section-number { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 600; color: var(--primary); }
+.section-header h2 { font-family: var(--font-display); font-size: 1.5rem; font-weight: 500; }
+.section-header .rfc-ref {
+  margin-left: auto; font-family: var(--font-mono); font-size: 0.68rem;
+  color: var(--muted-foreground); white-space: nowrap;
+}
+h3 { font-family: var(--font-display); font-size: 1.15rem; font-weight: 500; margin: 32px 0 8px; }
+p { max-width: 72ch; margin-bottom: 12px; font-size: 0.95rem; }
+p.lede { font-size: 1.02rem; color: var(--muted-foreground); }
+strong { font-weight: 600; }
+code {
+  font-family: var(--font-mono); font-size: 0.86em;
+  background: var(--code-bg); padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* ---------- Layout helpers ---------- */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.three-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+@media (max-width: 780px) {
+  .two-col, .three-col { grid-template-columns: 1fr; }
+}
+
+.card {
+  background: var(--card); border: 1.5px solid var(--border);
+  border-radius: var(--radius); padding: 20px 22px;
+}
+.card--hero {
+  background: color-mix(in oklab, var(--primary) 5%, var(--card));
+  border-color: var(--primary);
+}
+.card--recessed { background: var(--muted); border-color: transparent; }
+.card h4 {
+  font-family: var(--font-sans); font-size: 0.95rem; font-weight: 600;
+  margin-bottom: 6px;
+}
+.card p { font-size: 0.88rem; color: var(--muted-foreground); margin-bottom: 0; }
+.card p + p { margin-top: 8px; }
+
+/* ---------- Diagram panel ---------- */
+.diagram-panel {
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  padding: 24px; margin: 24px 0; background: var(--card);
+  overflow-x: auto;
+}
+.diagram-panel svg { display: block; margin: 0 auto; }
+.diagram-caption {
+  font-family: var(--font-mono); font-size: 0.72rem;
+  color: var(--muted-foreground); display: block;
+  margin-top: 12px; text-align: center;
+}
+
+/* ---------- Code ---------- */
+.code-panel {
+  background: var(--code-bg); border-radius: var(--radius);
+  padding: 20px 24px; overflow-x: auto; margin: 16px 0;
+  border: 1.5px solid var(--border);
+}
+.code-label {
+  font-family: var(--font-mono); font-size: 0.7rem;
+  color: var(--muted-foreground); display: block; margin-bottom: 10px;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.code-panel pre {
+  margin: 0; font-family: var(--font-mono);
+  font-size: 0.82rem; line-height: 1.6; color: var(--foreground);
+}
+.kw  { color: var(--primary); }
+.fn  { color: var(--accent); }
+.str { color: var(--success); }
+.cm  { color: var(--muted-foreground); font-style: italic; }
+.num { color: var(--warning); }
+
+/* ---------- Badges & tags ---------- */
+.badge {
+  font-family: var(--font-mono); font-size: 0.66rem; font-weight: 600;
+  padding: 2px 8px; border-radius: calc(var(--radius) - 4px);
+  text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap;
+  display: inline-block;
+}
+.badge.high { background: color-mix(in oklab, var(--destructive) 15%, transparent); color: var(--destructive); }
+.badge.med  { background: color-mix(in oklab, var(--warning) 18%, transparent); color: var(--warning); }
+.badge.low  { background: color-mix(in oklab, var(--success) 15%, transparent); color: var(--success); }
+.badge.info { background: color-mix(in oklab, var(--primary) 14%, transparent); color: var(--primary); }
+
+.tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.tag {
+  font-family: var(--font-mono); font-size: 0.68rem;
+  padding: 2px 8px; border-radius: calc(var(--radius) - 4px);
+  background: var(--muted); color: var(--muted-foreground);
+}
+.tag.highlight { background: color-mix(in oklab, var(--primary) 12%, transparent); color: var(--primary); }
+
+/* ---------- Grid table ---------- */
+.grid-table {
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  overflow: hidden; margin: 20px 0;
+}
+.gt-row {
+  display: grid; gap: 20px; padding: 14px 20px;
+  align-items: center; border-bottom: 1px solid var(--border);
+}
+.gt-row:last-child { border-bottom: none; }
+.gt-row.head {
+  background: var(--muted);
+  font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-foreground);
+}
+.gt-3 { grid-template-columns: 1.1fr 90px 1.6fr; }
+.gt-2 { grid-template-columns: 1fr 1.8fr; }
+.gt-msg { grid-template-columns: 190px 70px 1.5fr; }
+.gt-name { font-weight: 500; font-size: 0.92rem; }
+.gt-name code { background: none; padding: 0; font-size: 0.84rem; color: var(--foreground); }
+.gt-desc { font-size: 0.88rem; color: var(--muted-foreground); }
+@media (max-width: 780px) {
+  .gt-3, .gt-2, .gt-msg { grid-template-columns: 1fr; gap: 6px; }
+  .gt-row.head { display: none; }
+}
+
+/* ---------- Callout ---------- */
+.callout {
+  border-left: 3px solid var(--primary);
+  padding: 14px 22px; margin: 20px 0;
+  background: var(--card); border-radius: 0 var(--radius) var(--radius) 0;
+}
+.callout.warn { border-left-color: var(--warning); }
+.callout.danger { border-left-color: var(--destructive); }
+.callout h4 { font-family: var(--font-display); font-size: 1.02rem; font-weight: 500; margin-bottom: 4px; }
+.callout p { font-size: 0.89rem; color: var(--muted-foreground); margin-bottom: 0; }
+.callout .note {
+  font-family: var(--font-mono); font-size: 0.7rem; color: var(--primary);
+  font-weight: 500; display: block; margin-top: 8px;
+}
+.callout.warn .note { color: var(--warning); }
+.callout.danger .note { color: var(--destructive); }
+
+/* ---------- Key schedule ---------- */
+.ks { margin: 24px 0; }
+.ks-stage {
+  display: grid; grid-template-columns: 150px 1fr 1.5fr;
+  gap: 0 20px; align-items: start;
+}
+.ks-in {
+  text-align: right; padding-top: 18px;
+}
+.ks-in .chip {
+  display: inline-block; font-family: var(--font-mono); font-size: 0.76rem;
+  font-weight: 600; padding: 4px 12px; border-radius: 999px;
+  background: color-mix(in oklab, var(--accent) 16%, transparent);
+  color: var(--accent); border: 1.5px solid color-mix(in oklab, var(--accent) 45%, transparent);
+}
+.ks-in .op {
+  display: block; font-family: var(--font-mono); font-size: 0.66rem;
+  color: var(--muted-foreground); margin-top: 4px;
+}
+.ks-core {
+  background: color-mix(in oklab, var(--primary) 7%, var(--card));
+  border: 1.5px solid var(--primary);
+  border-radius: var(--radius); padding: 14px 18px;
+}
+.ks-core .extract {
+  font-family: var(--font-mono); font-size: 0.66rem;
+  color: var(--muted-foreground); text-transform: uppercase; letter-spacing: 0.05em;
+}
+.ks-core .name {
+  font-family: var(--font-display); font-size: 1.2rem; font-weight: 500;
+  display: block; margin-top: 2px;
+}
+.ks-core .why { font-size: 0.8rem; color: var(--muted-foreground); margin-top: 6px; line-height: 1.5; }
+.ks-out { padding-top: 8px; }
+.ks-out li {
+  list-style: none; display: flex; gap: 10px; align-items: baseline;
+  padding: 4px 0 4px 18px; position: relative;
+}
+.ks-out li::before {
+  content: '└─'; position: absolute; left: 0;
+  font-family: var(--font-mono); font-size: 0.7rem; color: var(--border);
+}
+.ks-out .lbl {
+  font-family: var(--font-mono); font-size: 0.74rem; font-weight: 600;
+  color: var(--primary); white-space: nowrap;
+}
+.ks-out .txt { font-size: 0.8rem; color: var(--muted-foreground); line-height: 1.45; }
+.ks-link {
+  display: grid; grid-template-columns: 150px 1fr 1.5fr; gap: 0 20px;
+}
+.ks-link .mid {
+  border-left: 2px dashed var(--border); margin-left: 24px;
+  padding: 10px 0 10px 18px;
+  font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted-foreground);
+}
+@media (max-width: 780px) {
+  .ks-stage, .ks-link { grid-template-columns: 1fr; gap: 10px; }
+  .ks-in { text-align: left; padding-top: 0; }
+  .ks-link .mid { margin-left: 8px; }
+}
+
+/* ---------- Record layout strip ---------- */
+.bytes { display: flex; gap: 3px; margin: 10px 0 4px; flex-wrap: nowrap; min-width: 480px; }
+.byte {
+  border: 1.5px solid var(--border); border-radius: 6px;
+  padding: 10px 8px; text-align: center; background: var(--card);
+  font-family: var(--font-mono); font-size: 0.7rem; line-height: 1.35;
+}
+.byte b { display: block; font-weight: 600; font-size: 0.72rem; color: var(--foreground); }
+.byte span { color: var(--muted-foreground); font-size: 0.64rem; }
+.byte.enc { background: color-mix(in oklab, var(--primary) 10%, var(--card)); border-color: var(--primary); }
+.byte.clear { background: var(--muted); border-color: transparent; }
+.byte.aad { background: color-mix(in oklab, var(--warning) 12%, var(--card)); border-color: var(--warning); }
+.byte.tagb { background: color-mix(in oklab, var(--success) 12%, var(--card)); border-color: var(--success); }
+.strip-wrap { overflow-x: auto; }
+.strip-label {
+  font-family: var(--font-mono); font-size: 0.68rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted-foreground);
+  margin-top: 18px;
+}
+
+/* ---------- Legend ---------- */
+.legend { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 14px; justify-content: center; }
+.legend span {
+  font-family: var(--font-mono); font-size: 0.68rem; color: var(--muted-foreground);
+  display: flex; align-items: center; gap: 6px;
+}
+.legend i { width: 20px; height: 3px; border-radius: 2px; display: inline-block; }
+
+/* ---------- Details ---------- */
+details {
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  margin: 14px 0; background: var(--card);
+}
+summary {
+  font-family: var(--font-sans); font-weight: 500; font-size: 0.94rem;
+  padding: 14px 20px; cursor: pointer; list-style: none;
+}
+summary::-webkit-details-marker { display: none; }
+summary::before {
+  content: '▸'; display: inline-block; margin-right: 10px;
+  transition: transform 0.2s; color: var(--primary);
+}
+details[open] summary::before { transform: rotate(90deg); }
+.details-body { padding: 0 20px 20px; }
+.details-body p { font-size: 0.9rem; color: var(--muted-foreground); }
+
+footer {
+  margin-top: 80px; padding-top: 24px; border-top: 1.5px solid var(--border);
+  font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted-foreground);
+}
+footer a { color: var(--primary); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <span class="eyebrow">RFC 8446 · Standards Track · August 2018 · obsoletes RFC 5246</span>
+  <h1>TLS 1.3</h1>
+  <p class="subtitle">The Transport Layer Security protocol, rebuilt around one round trip and forward secrecy.</p>
+  <div class="prompt-box">
+    <span class="prompt-label">What this covers</span>
+    <p>A visual walk through RFC 8446: the handshake message flow, the key-derivation ladder that produces every key on the wire, how the record layer encrypts, how session resumption and 0-RTT work, and the long list of TLS 1.2 features that were deleted rather than patched. Crypto terms are glossed in plain language as they appear.</p>
+  </div>
+</header>
+
+<div class="summary-strip">
+  <div class="stat-card"><span class="stat-value">1</span><span class="stat-label">round trip to first byte</span></div>
+  <div class="stat-card"><span class="stat-value">0</span><span class="stat-label">round trips on resume</span></div>
+  <div class="stat-card"><span class="stat-value">5</span><span class="stat-label">cipher suites total</span></div>
+  <div class="stat-card"><span class="stat-value">AEAD</span><span class="stat-label">only encryption mode</span></div>
+  <div class="stat-card"><span class="stat-value">100%</span><span class="stat-label">key exchanges forward-secret</span></div>
+</div>
+
+
+<!-- ============ 01 ============ -->
+<section>
+  <div class="section-header">
+    <span class="section-number">01</span>
+    <h2>The one-paragraph version</h2>
+    <span class="rfc-ref">§1.2, §2</span>
+  </div>
+
+  <p class="lede">TLS 1.3 is not TLS 1.2 with better ciphers. It is a redesign that removes every mode which could be misused, and folds the key exchange into the very first message so the handshake finishes in one round trip instead of two.</p>
+
+  <p>The pivotal change: the client <em>guesses</em>. Instead of waiting for the server to announce which key-exchange group it supports, the client sends a Diffie-Hellman public key in its very first message. If it guessed a group the server accepts — which it almost always does — both sides can compute a shared secret immediately, and every message after the server's first reply is encrypted.</p>
+
+  <div class="two-col">
+    <div class="card">
+      <h4>TLS 1.2 — two round trips</h4>
+      <p><strong>RTT 1:</strong> ClientHello → ServerHello + Certificate + ServerKeyExchange → ClientKeyExchange + ChangeCipherSpec + Finished.</p>
+      <p><strong>RTT 2:</strong> server Finished, then application data. The certificate travels in the clear, and static-RSA key exchange means recording traffic today and stealing the server key later decrypts it.</p>
+      <div class="tags">
+        <span class="tag">cert in cleartext</span>
+        <span class="tag">no forward secrecy (static RSA)</span>
+        <span class="tag">MAC-then-encrypt</span>
+      </div>
+    </div>
+    <div class="card card--hero">
+      <h4>TLS 1.3 — one round trip</h4>
+      <p><strong>RTT 1:</strong> ClientHello with a key share → ServerHello with the matching share, then <em>everything else encrypted</em>: extensions, certificate, signature, Finished.</p>
+      <p>The client's reply carries its Finished and can be immediately followed by application data. Ephemeral (EC)DHE is the only key-exchange mechanism, so a stolen server key never decrypts past traffic.</p>
+      <div class="tags">
+        <span class="tag highlight">cert encrypted</span>
+        <span class="tag highlight">forward secrecy always</span>
+        <span class="tag highlight">AEAD only</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <h4>Forward secrecy, briefly</h4>
+    <p>Each connection generates a throwaway Diffie-Hellman key pair and discards it afterwards. An attacker who records the encrypted traffic and later steals the server's long-term private key still cannot decrypt it — that key only signs, it never encrypts the session. TLS 1.2's static-RSA mode did not have this property; TLS 1.3 deleted the mode.</p>
+    <span class="note">RFC 8446 §1.2 — "all public-key based key exchange mechanisms now provide forward secrecy"</span>
+  </div>
+</section>
+
+
+<!-- ============ 02 ============ -->
+<section>
+  <div class="section-header">
+    <span class="section-number">02</span>
+    <h2>The full handshake</h2>
+    <span class="rfc-ref">§2, §4.1–4.4</span>
+  </div>
+
+  <p>Three phases, one round trip. Key exchange (unencrypted, by necessity), then server parameters and authentication (encrypted under handshake keys), then application data (encrypted under application keys).</p>
+
+  <div class="diagram-panel">
+  <svg viewBox="0 0 760 540" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:760px" role="img" aria-label="TLS 1.3 full handshake sequence diagram">
+    <style>
+      .lane   { fill: var(--card); stroke: var(--border); stroke-width: 1.5; }
+      .lane-t { font-family: var(--font-sans); font-size: 13.5px; font-weight: 600; fill: var(--foreground); }
+      .life   { stroke: var(--border); stroke-width: 1.5; stroke-dasharray: 4 5; }
+      .conn   { stroke: var(--muted-foreground); stroke-width: 1.6; }
+      .conn-p { stroke: var(--primary); stroke-width: 1.6; }
+      .conn-s { stroke: var(--success); stroke-width: 1.6; }
+      .msg    { font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; fill: var(--foreground); }
+      .msg-p  { font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; fill: var(--primary); }
+      .msg-s  { font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; fill: var(--success); }
+      .sub    { font-family: var(--font-mono); font-size: 9.5px; fill: var(--muted-foreground); }
+      .div-t  { font-family: var(--font-mono); font-size: 10px; font-weight: 600; fill: var(--muted-foreground); letter-spacing: 0.04em; }
+      .phase  { font-family: var(--font-mono); font-size: 9.5px; font-weight: 600; fill: var(--muted-foreground);
+                letter-spacing: 0.08em; text-transform: uppercase; }
+    </style>
+    <defs>
+      <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--muted-foreground)"/>
+      </marker>
+      <marker id="ap" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--primary)"/>
+      </marker>
+      <marker id="as" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--success)"/>
+      </marker>
+    </defs>
+
+    <!-- encryption bands (behind everything) -->
+    <rect x="26" y="188" width="708" height="212" rx="10"
+          fill="color-mix(in oklab, var(--primary) 7%, transparent)"
+          stroke="color-mix(in oklab, var(--primary) 35%, transparent)" stroke-width="1.5" stroke-dasharray="6 4"/>
+    <rect x="26" y="424" width="708" height="88" rx="10"
+          fill="color-mix(in oklab, var(--success) 8%, transparent)"
+          stroke="color-mix(in oklab, var(--success) 35%, transparent)" stroke-width="1.5" stroke-dasharray="6 4"/>
+
+    <!-- lanes -->
+    <rect x="60" y="12" width="150" height="38" rx="10" class="lane"/>
+    <text x="135" y="36" text-anchor="middle" class="lane-t">Client</text>
+    <rect x="550" y="12" width="150" height="38" rx="10" class="lane"/>
+    <text x="625" y="36" text-anchor="middle" class="lane-t">Server</text>
+    <line x1="135" y1="50" x2="135" y2="516" class="life"/>
+    <line x1="625" y1="50" x2="625" y2="516" class="life"/>
+
+    <!-- phase 1 label -->
+    <text x="26" y="76" class="phase">1 · Key exchange — cleartext</text>
+
+    <!-- ClientHello -->
+    <text x="380" y="104" text-anchor="middle" class="msg">ClientHello</text>
+    <line x1="145" y1="114" x2="615" y2="114" class="conn" marker-end="url(#ah)"/>
+    <text x="380" y="130" text-anchor="middle" class="sub">+ key_share (ephemeral DH public key)  + supported_versions  + signature_algorithms</text>
+
+    <!-- ServerHello -->
+    <text x="380" y="158" text-anchor="middle" class="msg">ServerHello</text>
+    <line x1="615" y1="168" x2="145" y2="168" class="conn" marker-end="url(#ah)"/>
+    <text x="380" y="184" text-anchor="middle" class="sub">+ key_share (server's DH public key)  + supported_versions</text>
+
+    <!-- divider: handshake keys -->
+    <text x="380" y="207" text-anchor="middle" class="div-t">🔒  both sides now compute the shared secret → handshake traffic keys</text>
+    <text x="26" y="230" class="phase">2 · Server parameters + auth — encrypted</text>
+
+    <!-- EncryptedExtensions -->
+    <text x="380" y="252" text-anchor="middle" class="msg-p">{ EncryptedExtensions }</text>
+    <line x1="615" y1="262" x2="145" y2="262" class="conn-p" marker-end="url(#ap)"/>
+    <text x="380" y="276" text-anchor="middle" class="sub">ALPN, server_name ack, and every other non-key-exchange parameter</text>
+
+    <!-- CertificateRequest -->
+    <text x="380" y="300" text-anchor="middle" class="msg-p">{ CertificateRequest }  *optional</text>
+    <line x1="615" y1="310" x2="145" y2="310" class="conn-p" marker-end="url(#ap)"/>
+
+    <!-- Certificate -->
+    <text x="380" y="334" text-anchor="middle" class="msg-p">{ Certificate }</text>
+    <line x1="615" y1="344" x2="145" y2="344" class="conn-p" marker-end="url(#ap)"/>
+    <text x="380" y="358" text-anchor="middle" class="sub">the cert chain — never visible on the wire in TLS 1.3</text>
+
+    <!-- CertificateVerify + Finished -->
+    <text x="380" y="382" text-anchor="middle" class="msg-p">{ CertificateVerify }   { Finished }</text>
+    <line x1="615" y1="392" x2="145" y2="392" class="conn-p" marker-end="url(#ap)"/>
+
+    <!-- divider: app keys -->
+    <text x="380" y="416" text-anchor="middle" class="div-t">server may already start sending  [ Application Data ]</text>
+    <text x="26" y="442" class="phase">3 · Client auth + application data</text>
+
+    <!-- client flight -->
+    <text x="380" y="464" text-anchor="middle" class="msg-p">{ Certificate* }  { CertificateVerify* }  { Finished }</text>
+    <line x1="145" y1="474" x2="615" y2="474" class="conn-p" marker-end="url(#ap)"/>
+
+    <!-- app data -->
+    <text x="380" y="496" text-anchor="middle" class="msg-s">[ Application Data ]</text>
+    <line x1="145" y1="506" x2="615" y2="506" class="conn-s" marker-end="url(#as)"/>
+    <line x1="615" y1="506" x2="145" y2="506" class="conn-s" marker-end="url(#as)"/>
+  </svg>
+  <div class="legend">
+    <span><i style="background:var(--muted-foreground)"></i> cleartext</span>
+    <span><i style="background:var(--primary)"></i> { } handshake keys</span>
+    <span><i style="background:var(--success)"></i> [ ] application keys</span>
+    <span>* optional / situation-dependent</span>
+  </div>
+  <span class="diagram-caption">RFC 8446 §2, Figure 1 — the full 1-RTT handshake</span>
+  </div>
+
+  <h3>What each message actually does</h3>
+
+  <div class="grid-table">
+    <div class="gt-row head gt-msg"><div>Message</div><div>From</div><div>Job</div></div>
+    <div class="gt-row gt-msg">
+      <div class="gt-name"><code>ClientHello</code></div><div><span class="badge info">client</span></div>
+      <div class="gt-desc">Offers versions, cipher suites, and — critically — one or more <code>key_share</code> entries: real DH public keys for groups the client guesses the server will accept. Also carries a 32-byte random and the extensions that drive everything downstream.</div>
+    </div>
+    <div class="gt-row gt-msg">
+      <div class="gt-name"><code>ServerHello</code></div><div><span class="badge info">server</span></div>
+      <div class="gt-desc">Picks one cipher suite and one <code>key_share</code>. This is the last cleartext handshake message; from here both sides have the shared secret.</div>
+    </div>
+    <div class="gt-row gt-msg">
+      <div class="gt-name"><code>HelloRetryRequest</code></div><div><span class="badge med">server</span></div>
+      <div class="gt-desc">Sent instead of ServerHello when the client guessed the wrong group. Costs an extra round trip: the client re-sends ClientHello with the requested group. Structurally a ServerHello with a fixed sentinel <code>random</code> value.</div>
+    </div>
+    <div class="gt-row gt-msg">
+      <div class="gt-name"><code>EncryptedExtensions</code></div><div><span class="badge info">server</span></div>
+      <div class="gt-desc">New in 1.3. Everything that isn't needed to establish keys moves here so it can be encrypted — ALPN, SNI acknowledgement, <code>early_data</code>, supported groups.</div>
+    </div>
+    <div class="gt-row gt-msg">
+      <div class="gt-name"><code>Certificate</code></div><div><span class="badge info">both</span></div>
+      <div class="gt-desc">The certificate chain, now encrypted. Each entry can carry its own extensions (e.g. OCSP stapling per-cert instead of one global blob).</div>
+    </div>
+    <div class="gt-row gt-msg">
+      <div class="gt-name"><code>CertificateVerify</code></div><div><span class="badge info">both</span></div>
+      <div class="gt-desc">Proves possession of the private key by signing a hash of the entire handshake so far. This is what actually authenticates the peer — the certificate alone proves nothing.</div>
+    </div>
+    <div class="gt-row gt-msg">
+      <div class="gt-name"><code>Finished</code></div><div><span class="badge info">both</span></div>
+      <div class="gt-desc">An HMAC over the transcript using a key derived from the handshake secret. Proves both sides saw the identical message sequence — the anti-tampering seal on the whole handshake. Mandatory in both directions.</div>
+    </div>
+    <div class="gt-row gt-msg">
+      <div class="gt-name"><code>NewSessionTicket</code></div><div><span class="badge low">server</span></div>
+      <div class="gt-desc">Post-handshake. Hands the client a resumption ticket (a PSK identity) for future 0-RTT or 1-RTT-resumed connections.</div>
+    </div>
+    <div class="gt-row gt-msg">
+      <div class="gt-name"><code>KeyUpdate</code></div><div><span class="badge low">both</span></div>
+      <div class="gt-desc">Post-handshake. Ratchets the application traffic secret forward so long-lived connections don't exhaust AEAD key limits.</div>
+    </div>
+  </div>
+
+  <div class="code-panel">
+    <span class="code-label">§4.4.3 — CertificateVerify signs this, not the raw transcript</span>
+<pre><span class="cm">// The signed content is deliberately prefixed so a TLS signature can never be
+// mistaken for a signature over some other protocol's data (cross-protocol attacks).</span>
+
+<span class="num">0x20</span> repeated <span class="num">64</span> times            <span class="cm">// 64 spaces</span>
+<span class="str">"TLS 1.3, server CertificateVerify"</span>   <span class="cm">// or "...client CertificateVerify"</span>
+<span class="num">0x00</span>                              <span class="cm">// separator byte</span>
+Transcript-Hash(Handshake Context, Certificate)</pre>
+  </div>
+
+  <div class="code-panel">
+    <span class="code-label">§4.4.4 — Finished</span>
+<pre>finished_key = <span class="fn">HKDF-Expand-Label</span>(BaseKey, <span class="str">"finished"</span>, <span class="str">""</span>, Hash.length)
+
+verify_data  = <span class="fn">HMAC</span>(finished_key,
+                    Transcript-Hash(Handshake Context, Certificate*, CertificateVerify*))</pre>
+  </div>
+</section>
+
+
+<!-- ============ 03 ============ -->
+<section>
+  <div class="section-header">
+    <span class="section-number">03</span>
+    <h2>The key schedule</h2>
+    <span class="rfc-ref">§7.1</span>
+  </div>
+
+  <p class="lede">Every key TLS 1.3 ever uses comes out of one ladder. Secrets flow downward; each rung mixes in new input material and spurs off the traffic secrets for that stage.</p>
+
+  <p>Two primitives do all the work. <strong>HKDF-Extract</strong> takes messy input (a Diffie-Hellman result, a pre-shared key) and condenses it into a uniform secret. <strong>HKDF-Expand-Label</strong> takes that secret plus a short label and stretches it into as many distinct keys as needed — different labels give provably unrelated keys from the same parent.</p>
+
+  <div class="ks">
+
+    <div class="ks-stage">
+      <div class="ks-in">
+        <span class="chip">PSK</span>
+        <span class="op">or all-zeroes if none</span>
+      </div>
+      <div class="ks-core">
+        <span class="extract">HKDF-Extract</span>
+        <span class="name">Early Secret</span>
+        <p class="why">Exists only so resumption and 0-RTT have something to derive from. On a fresh connection with no pre-shared key, the input is a string of zero bytes and the outputs below go unused.</p>
+      </div>
+      <ul class="ks-out">
+        <li><span class="lbl">binder_key</span><span class="txt">Proves the client really holds the PSK, not just a copied ticket ID</span></li>
+        <li><span class="lbl">c e traffic</span><span class="txt">Encrypts 0-RTT early data — <em>not</em> forward secret</span></li>
+        <li><span class="lbl">e exp master</span><span class="txt">Early exporter, for protocols layered on top of TLS</span></li>
+      </ul>
+    </div>
+
+    <div class="ks-link">
+      <div></div>
+      <div class="mid">Derive-Secret(·, "derived", "") &nbsp;↓&nbsp; carry the secret forward, domain-separated</div>
+      <div></div>
+    </div>
+
+    <div class="ks-stage">
+      <div class="ks-in">
+        <span class="chip">(EC)DHE</span>
+        <span class="op">shared secret from the key_shares</span>
+      </div>
+      <div class="ks-core">
+        <span class="extract">HKDF-Extract</span>
+        <span class="name">Handshake Secret</span>
+        <p class="why">The first secret that depends on fresh, ephemeral key material from <em>both</em> parties. This is the rung that delivers forward secrecy, and it is available the instant ServerHello lands.</p>
+      </div>
+      <ul class="ks-out">
+        <li><span class="lbl">c hs traffic</span><span class="txt">Client → server handshake encryption</span></li>
+        <li><span class="lbl">s hs traffic</span><span class="txt">Server → client handshake encryption — this is what protects the certificate</span></li>
+      </ul>
+    </div>
+
+    <div class="ks-link">
+      <div></div>
+      <div class="mid">Derive-Secret(·, "derived", "") &nbsp;↓</div>
+      <div></div>
+    </div>
+
+    <div class="ks-stage">
+      <div class="ks-in">
+        <span class="chip">0</span>
+        <span class="op">no new input — nothing left to mix</span>
+      </div>
+      <div class="ks-core">
+        <span class="extract">HKDF-Extract</span>
+        <span class="name">Master Secret</span>
+        <p class="why">Derived once the handshake transcript is complete, so every application key is bound to the exact messages both sides exchanged. Tampering anywhere upstream produces different keys and the connection fails.</p>
+      </div>
+      <ul class="ks-out">
+        <li><span class="lbl">c ap traffic</span><span class="txt">Client → server application data</span></li>
+        <li><span class="lbl">s ap traffic</span><span class="txt">Server → client application data</span></li>
+        <li><span class="lbl">exp master</span><span class="txt">Exporter — lets protocols like DTLS-SRTP or QUIC derive their own keys</span></li>
+        <li><span class="lbl">res master</span><span class="txt">Resumption master — the seed for every future NewSessionTicket</span></li>
+      </ul>
+    </div>
+
+  </div>
+
+  <div class="code-panel">
+    <span class="code-label">§7.1 — the two derivation functions, verbatim in structure</span>
+<pre><span class="fn">HKDF-Expand-Label</span>(Secret, Label, Context, Length) =
+     <span class="fn">HKDF-Expand</span>(Secret, HkdfLabel, Length)
+
+<span class="kw">struct</span> {
+    <span class="kw">uint16</span> length      = Length;
+    <span class="kw">opaque</span> label&lt;7..255&gt;   = <span class="str">"tls13 "</span> + Label;   <span class="cm">// the prefix isolates TLS 1.3 keys</span>
+    <span class="kw">opaque</span> context&lt;0..255&gt; = Context;
+} HkdfLabel;
+
+<span class="fn">Derive-Secret</span>(Secret, Label, Messages) =
+     <span class="fn">HKDF-Expand-Label</span>(Secret, Label,
+                       <span class="fn">Transcript-Hash</span>(Messages), Hash.length)</pre>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <h4>From traffic secret to actual keys</h4>
+      <p>A traffic secret is not itself an encryption key. Each direction expands its secret twice:</p>
+      <p><code>write_key = HKDF-Expand-Label(S, "key", "", key_len)</code><br>
+         <code>write_iv&nbsp; = HKDF-Expand-Label(S, "iv",&nbsp; "", iv_len)</code></p>
+    </div>
+    <div class="card">
+      <h4>Ratcheting forward (KeyUpdate)</h4>
+      <p>Long connections rotate keys without a new handshake:</p>
+      <p><code>secret_N+1 = HKDF-Expand-Label(secret_N, "traffic upd", "", Hash.len)</code></p>
+      <p>One-way — an attacker who compromises <code>secret_N+1</code> cannot roll back to <code>secret_N</code>.</p>
+    </div>
+  </div>
+</section>
+
+
+<!-- ============ 04 ============ -->
+<section>
+  <div class="section-header">
+    <span class="section-number">04</span>
+    <h2>The record layer</h2>
+    <span class="rfc-ref">§5.1–5.5</span>
+  </div>
+
+  <p>Every TLS 1.3 cipher suite is AEAD — <em>authenticated encryption with associated data</em>. One primitive both encrypts and authenticates in a single pass, which eliminates the entire class of MAC-then-encrypt padding-oracle bugs that plagued TLS 1.2 (BEAST, Lucky13, POODLE).</p>
+
+  <p>The record format also hides more than it used to. The real content type moves <em>inside</em> the encrypted blob, and the outer header always claims to be <code>application_data</code> — so an observer can't distinguish a handshake record from an alert from real traffic.</p>
+
+  <div class="diagram-panel">
+    <div class="strip-wrap">
+      <div class="strip-label">Before encryption — TLSInnerPlaintext</div>
+      <div class="bytes">
+        <div class="byte enc" style="flex:5"><b>content</b><span>the actual plaintext</span></div>
+        <div class="byte enc" style="flex:1.1"><b>type</b><span>real ContentType</span></div>
+        <div class="byte enc" style="flex:2"><b>zeros[]</b><span>optional padding — hides message length</span></div>
+      </div>
+
+      <div class="strip-label">After encryption — TLSCiphertext on the wire</div>
+      <div class="bytes">
+        <div class="byte aad" style="flex:1.6"><b>opaque_type</b><span>always 23 (application_data)</span></div>
+        <div class="byte aad" style="flex:1.6"><b>legacy_version</b><span>always 0x0303 — a lie for middleboxes</span></div>
+        <div class="byte aad" style="flex:1.2"><b>length</b><span>uint16</span></div>
+        <div class="byte enc" style="flex:5"><b>encrypted_record</b><span>AEAD ciphertext of the block above</span></div>
+        <div class="byte tagb" style="flex:1.4"><b>auth tag</b><span>appended by the AEAD</span></div>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--warning)"></i> header — used as AEAD associated data</span>
+      <span><i style="background:var(--primary)"></i> encrypted</span>
+      <span><i style="background:var(--success)"></i> integrity tag</span>
+    </div>
+    <span class="diagram-caption">§5.2 — the true content type is encrypted; the header is authenticated but not hidden</span>
+  </div>
+
+  <div class="two-col">
+    <div class="card">
+      <h4>Per-record nonce (§5.3)</h4>
+      <p>No nonce is transmitted. Each side keeps a 64-bit sequence counter, left-pads it with zeros to the IV length, and XORs it with the static <code>write_iv</code> from the key schedule. Same counter on both ends means both derive the same nonce without spending bytes on the wire.</p>
+      <p>The counter resets to zero whenever keys change, and it must never wrap — hence KeyUpdate.</p>
+    </div>
+    <div class="card">
+      <h4>Key usage limits (§5.5)</h4>
+      <p>AEAD constructions degrade after enough records under one key. RFC 8446 gives concrete ceilings — for AES-GCM, roughly 2<sup>24.5</sup> records before a KeyUpdate is required. Exceeding them is a real cryptographic risk, not a formality.</p>
+    </div>
+  </div>
+
+  <h3>The five cipher suites</h3>
+  <p>TLS 1.3 cipher suites name only the AEAD and the hash. Key exchange and signature algorithm are negotiated separately by extension — so the combinatorial explosion of TLS 1.2 suite names is gone.</p>
+
+  <div class="grid-table">
+    <div class="gt-row head gt-3"><div>Suite</div><div>Status</div><div>Notes</div></div>
+    <div class="gt-row gt-3">
+      <div class="gt-name"><code>TLS_AES_128_GCM_SHA256</code></div>
+      <div><span class="badge low">MUST</span></div>
+      <div class="gt-desc">The mandatory baseline. Every conforming implementation supports it.</div>
+    </div>
+    <div class="gt-row gt-3">
+      <div class="gt-name"><code>TLS_AES_256_GCM_SHA384</code></div>
+      <div><span class="badge info">SHOULD</span></div>
+      <div class="gt-desc">Larger key and hash for higher security margins.</div>
+    </div>
+    <div class="gt-row gt-3">
+      <div class="gt-name"><code>TLS_CHACHA20_POLY1305_SHA256</code></div>
+      <div><span class="badge info">SHOULD</span></div>
+      <div class="gt-desc">Fast and constant-time in software — preferred where there's no AES hardware acceleration (most mobile).</div>
+    </div>
+    <div class="gt-row gt-3">
+      <div class="gt-name"><code>TLS_AES_128_CCM_SHA256</code></div>
+      <div><span class="badge med">MAY</span></div>
+      <div class="gt-desc">Constrained / embedded environments.</div>
+    </div>
+    <div class="gt-row gt-3">
+      <div class="gt-name"><code>TLS_AES_128_CCM_8_SHA256</code></div>
+      <div><span class="badge med">MAY</span></div>
+      <div class="gt-desc">Truncated 8-byte tag. Saves bytes; weaker integrity. IoT-oriented.</div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ============ 05 ============ -->
+<section>
+  <div class="section-header">
+    <span class="section-number">05</span>
+    <h2>Resumption and 0-RTT</h2>
+    <span class="rfc-ref">§2.2, §2.3, §4.6.1, §8</span>
+  </div>
+
+  <p>TLS 1.3 collapses session IDs and session tickets into a single mechanism: the pre-shared key. After a handshake completes, the server sends one or more <code>NewSessionTicket</code> messages; each ticket is a PSK identity the client can present later.</p>
+
+  <p>Resuming with a PSK <em>and</em> a fresh key share gives a normal 1-RTT handshake with forward secrecy restored. Resuming with the PSK alone allows the client to send application data in its very first flight — 0-RTT — with a real security cost attached.</p>
+
+  <div class="diagram-panel">
+  <svg viewBox="0 0 760 300" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:760px" role="img" aria-label="0-RTT resumption flow">
+    <style>
+      .l2 { fill: var(--card); stroke: var(--border); stroke-width: 1.5; }
+      .t2 { font-family: var(--font-sans); font-size: 13.5px; font-weight: 600; fill: var(--foreground); }
+      .lf2 { stroke: var(--border); stroke-width: 1.5; stroke-dasharray: 4 5; }
+      .c2 { stroke: var(--muted-foreground); stroke-width: 1.6; }
+      .cw { stroke: var(--warning); stroke-width: 1.8; }
+      .cp2 { stroke: var(--primary); stroke-width: 1.6; }
+      .m2 { font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; fill: var(--foreground); }
+      .mw { font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; fill: var(--warning); }
+      .mp { font-family: var(--font-mono); font-size: 11.5px; font-weight: 600; fill: var(--primary); }
+      .s2 { font-family: var(--font-mono); font-size: 9.5px; fill: var(--muted-foreground); }
+    </style>
+    <defs>
+      <marker id="b1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--muted-foreground)"/>
+      </marker>
+      <marker id="b2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--warning)"/>
+      </marker>
+      <marker id="b3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--primary)"/>
+      </marker>
+    </defs>
+
+    <rect x="26" y="88" width="708" height="66" rx="10"
+          fill="color-mix(in oklab, var(--warning) 10%, transparent)"
+          stroke="color-mix(in oklab, var(--warning) 40%, transparent)" stroke-width="1.5" stroke-dasharray="6 4"/>
+
+    <rect x="60" y="12" width="150" height="38" rx="10" class="l2"/>
+    <text x="135" y="36" text-anchor="middle" class="t2">Client</text>
+    <rect x="550" y="12" width="150" height="38" rx="10" class="l2"/>
+    <text x="625" y="36" text-anchor="middle" class="t2">Server</text>
+    <line x1="135" y1="50" x2="135" y2="286" class="lf2"/>
+    <line x1="625" y1="50" x2="625" y2="286" class="lf2"/>
+
+    <text x="380" y="76" text-anchor="middle" class="m2">ClientHello  + key_share  + pre_shared_key  + early_data</text>
+    <line x1="145" y1="86" x2="615" y2="86" class="c2" marker-end="url(#b1)"/>
+
+    <text x="380" y="112" text-anchor="middle" class="mw">[ Early Application Data ]  — 0-RTT</text>
+    <line x1="145" y1="122" x2="615" y2="122" class="cw" marker-end="url(#b2)"/>
+    <text x="380" y="142" text-anchor="middle" class="s2">encrypted under client_early_traffic_secret · no forward secrecy · replayable</text>
+
+    <text x="380" y="180" text-anchor="middle" class="m2">ServerHello  + key_share  + pre_shared_key</text>
+    <line x1="615" y1="190" x2="145" y2="190" class="c2" marker-end="url(#b1)"/>
+
+    <text x="380" y="214" text-anchor="middle" class="mp">{ EncryptedExtensions + early_data }   { Finished }</text>
+    <line x1="615" y1="224" x2="145" y2="224" class="cp2" marker-end="url(#b3)"/>
+    <text x="380" y="240" text-anchor="middle" class="s2">the echoed early_data extension is the server accepting the 0-RTT payload</text>
+
+    <text x="380" y="266" text-anchor="middle" class="mp">{ EndOfEarlyData }   { Finished }   → then full forward secrecy</text>
+    <line x1="145" y1="276" x2="615" y2="276" class="cp2" marker-end="url(#b3)"/>
+  </svg>
+  <span class="diagram-caption">§2.3 — 0-RTT: data rides along with the first flight, before the server has said anything</span>
+  </div>
+
+  <div class="callout danger">
+    <h4>0-RTT data is replayable. This is by design, not a bug.</h4>
+    <p>Early data is encrypted under a key derived <em>only</em> from the pre-shared key — nothing fresh from the server is mixed in yet. Two consequences follow. First, no forward secrecy: whoever later obtains the PSK can decrypt it. Second, an attacker who captures the early-data flight can replay it verbatim to the same server, or to a different server in the same cluster, and it will be accepted.</p>
+    <span class="note">§8 — only send requests you would be comfortable having executed more than once. GET, not POST.</span>
+  </div>
+
+  <div class="three-col">
+    <div class="card">
+      <h4>Single-use tickets</h4>
+      <p>The server records each ticket and rejects the second use. Effective, but requires shared state across a server fleet.</p>
+    </div>
+    <div class="card">
+      <h4>ClientHello recording</h4>
+      <p>Hash and store recent ClientHellos within a bounded time window; reject duplicates. Bounded memory, bounded window.</p>
+    </div>
+    <div class="card">
+      <h4>Freshness checks</h4>
+      <p><code>obfuscated_ticket_age</code> lets the server verify the client's reported elapsed time is plausible, narrowing the replay window.</p>
+    </div>
+  </div>
+
+  <div class="callout">
+    <h4>The PSK binder</h4>
+    <p>The <code>pre_shared_key</code> extension must be last in the ClientHello, because it carries an HMAC — the <em>binder</em> — computed over the ClientHello truncated right before the binder itself. This proves the client actually possesses the PSK rather than having merely copied a ticket identity from an observed connection.</p>
+    <span class="note">§4.2.11.2</span>
+  </div>
+</section>
+
+
+<!-- ============ 06 ============ -->
+<section>
+  <div class="section-header">
+    <span class="section-number">06</span>
+    <h2>What was deleted, and why</h2>
+    <span class="rfc-ref">§1.2</span>
+  </div>
+
+  <p class="lede">The most consequential part of RFC 8446 is a list of subtractions. Nearly every major TLS attack of the 2010s traced back to a legacy mode kept for compatibility; TLS 1.3 removed the modes instead of hardening them.</p>
+
+  <div class="grid-table">
+    <div class="gt-row head gt-3"><div>Removed</div><div>Impact</div><div>Why</div></div>
+    <div class="gt-row gt-3">
+      <div class="gt-name">Static RSA key exchange</div>
+      <div><span class="badge high">major</span></div>
+      <div class="gt-desc">Encrypting the premaster secret to the server's long-term key means no forward secrecy — and it powered ROBOT and Bleichenbacher-style oracles. All key exchange is now ephemeral (EC)DHE.</div>
+    </div>
+    <div class="gt-row gt-3">
+      <div class="gt-name">Static Diffie-Hellman suites</div>
+      <div><span class="badge high">major</span></div>
+      <div class="gt-desc">Same forward-secrecy problem as static RSA.</div>
+    </div>
+    <div class="gt-row gt-3">
+      <div class="gt-name">Compression</div>
+      <div><span class="badge high">major</span></div>
+      <div class="gt-desc">Compressing before encrypting leaks plaintext through ciphertext length. This was CRIME.</div>
+    </div>
+    <div class="gt-row gt-3">
+      <div class="gt-name">Renegotiation</div>
+      <div><span class="badge high">major</span></div>
+      <div class="gt-desc">A long history of injection attacks. Replaced by narrowly-scoped post-handshake messages: KeyUpdate and post-handshake client auth.</div>
+    </div>
+    <div class="gt-row gt-3">
+      <div class="gt-name">Non-AEAD ciphers (CBC, RC4)</div>
+      <div><span class="badge high">major</span></div>
+      <div class="gt-desc">MAC-then-encrypt CBC produced BEAST, Lucky13 and POODLE. RC4 was simply broken. AEAD only, now.</div>
+    </div>
+    <div class="gt-row gt-3">
+      <div class="gt-name">Custom / arbitrary DHE groups</div>
+      <div><span class="badge med">medium</span></div>
+      <div class="gt-desc">Servers offering weak or malicious groups enabled Logjam. Only named, vetted groups remain.</div>
+    </div>
+    <div class="gt-row gt-3">
+      <div class="gt-name">RSA PKCS#1 v1.5 signatures</div>
+      <div><span class="badge med">medium</span></div>
+      <div class="gt-desc">Replaced by RSASSA-PSS, which has a proper security proof. (v1.5 remains permitted inside certificates for ecosystem reasons.)</div>
+    </div>
+    <div class="gt-row gt-3">
+      <div class="gt-name">DSA signatures, MD5 &amp; SHA-1 in the handshake</div>
+      <div><span class="badge med">medium</span></div>
+      <div class="gt-desc">Obsolete and, in SHA-1's case, collision-vulnerable — SLOTH.</div>
+    </div>
+    <div class="gt-row gt-3">
+      <div class="gt-name">ChangeCipherSpec</div>
+      <div><span class="badge low">minor</span></div>
+      <div class="gt-desc">No longer meaningful — key changes are implied by message sequence. Survives only as an ignored dummy record for middlebox compatibility.</div>
+    </div>
+    <div class="gt-row gt-3">
+      <div class="gt-name">Session IDs &amp; RFC 5077 tickets</div>
+      <div><span class="badge low">minor</span></div>
+      <div class="gt-desc">Two resumption mechanisms unified into one: PSK.</div>
+    </div>
+    <div class="gt-row gt-3">
+      <div class="gt-name">EC point format negotiation</div>
+      <div><span class="badge low">minor</span></div>
+      <div class="gt-desc">One format (uncompressed) is mandated. One less thing to negotiate wrongly.</div>
+    </div>
+  </div>
+
+  <div class="callout warn">
+    <h4>Version negotiation moved, too</h4>
+    <p>The <code>legacy_version</code> field in ClientHello is frozen at <code>0x0303</code> (TLS 1.2) forever, because middleboxes on the internet reject anything higher. Real version negotiation happens in the <code>supported_versions</code> extension. TLS 1.3 records also always claim to be TLS 1.2 on the wire — a deliberate disguise so deployed middleboxes let them through.</p>
+    <span class="note">§4.1.2, §4.2.1, Appendix D — "middlebox compatibility mode"</span>
+  </div>
+</section>
+
+
+<!-- ============ 07 ============ -->
+<section>
+  <div class="section-header">
+    <span class="section-number">07</span>
+    <h2>Downgrade protection</h2>
+    <span class="rfc-ref">§4.1.3</span>
+  </div>
+
+  <p>An active attacker who can strip the <code>supported_versions</code> extension could try to force both sides down to TLS 1.2 and attack that instead. TLS 1.3 defends with a sentinel hidden in plain sight.</p>
+
+  <p>A TLS 1.3-capable server that ends up negotiating an older version <strong>must</strong> write a fixed byte string into the last 8 bytes of <code>ServerHello.random</code>:</p>
+
+  <div class="code-panel">
+    <span class="code-label">§4.1.3 — downgrade sentinel values</span>
+<pre>negotiating TLS <span class="num">1.2</span>:      <span class="num">44 4F 57 4E 47 52 44 01</span>   <span class="cm">// "DOWNGRD" + 0x01</span>
+negotiating TLS <span class="num">1.1</span> or below: <span class="num">44 4F 57 4E 47 52 44 00</span>   <span class="cm">// "DOWNGRD" + 0x00</span></pre>
+  </div>
+
+  <p>A client that offered TLS 1.3 and sees this sentinel in a supposedly-1.2 response knows the downgrade was not the server's genuine choice, and aborts. Because <code>ServerHello.random</code> is covered by the TLS 1.2 Finished MAC, an attacker cannot strip the sentinel without breaking the handshake.</p>
+
+  <div class="callout">
+    <h4>Why the transcript hash matters everywhere</h4>
+    <p>Notice the recurring pattern: CertificateVerify signs the transcript, Finished MACs the transcript, and the Master Secret is derived from the transcript. Any modification an attacker makes to any handshake message — anywhere, at any point — produces a different hash, and the connection fails at the first check. That's the structural reason the handshake is tamper-evident as a whole rather than message by message.</p>
+    <span class="note">§4.4.1 — Transcript-Hash</span>
+  </div>
+</section>
+
+
+<!-- ============ 08 ============ -->
+<section>
+  <div class="section-header">
+    <span class="section-number">08</span>
+    <h2>Reference map</h2>
+    <span class="rfc-ref">RFC 8446 contents</span>
+  </div>
+
+  <p>Where to look when you need the normative text.</p>
+
+  <div class="grid-table">
+    <div class="gt-row head gt-2"><div>Section</div><div>Contents</div></div>
+    <div class="gt-row gt-2"><div class="gt-name">§1.2 – 1.3</div><div class="gt-desc">Differences from TLS 1.2; the updates that also affect TLS 1.2 implementations</div></div>
+    <div class="gt-row gt-2"><div class="gt-name">§2</div><div class="gt-desc">Protocol overview — the handshake diagrams, HelloRetryRequest, resumption, 0-RTT</div></div>
+    <div class="gt-row gt-2"><div class="gt-name">§3</div><div class="gt-desc">Presentation language — how to read every <code>struct</code> in the document</div></div>
+    <div class="gt-row gt-2"><div class="gt-name">§4.1</div><div class="gt-desc">Key exchange messages: ClientHello, ServerHello, HelloRetryRequest, version negotiation</div></div>
+    <div class="gt-row gt-2"><div class="gt-name">§4.2</div><div class="gt-desc">Every extension — supported_versions, key_share, signature_algorithms, pre_shared_key, early_data, cookie</div></div>
+    <div class="gt-row gt-2"><div class="gt-name">§4.3</div><div class="gt-desc">Server parameters: EncryptedExtensions, CertificateRequest</div></div>
+    <div class="gt-row gt-2"><div class="gt-name">§4.4</div><div class="gt-desc">Authentication: transcript hash, Certificate, CertificateVerify, Finished</div></div>
+    <div class="gt-row gt-2"><div class="gt-name">§4.6</div><div class="gt-desc">Post-handshake: NewSessionTicket, post-handshake auth, KeyUpdate</div></div>
+    <div class="gt-row gt-2"><div class="gt-name">§5</div><div class="gt-desc">Record protocol: record layer, AEAD protection, nonce, padding, key usage limits</div></div>
+    <div class="gt-row gt-2"><div class="gt-name">§6</div><div class="gt-desc">Alerts — closure and error</div></div>
+    <div class="gt-row gt-2"><div class="gt-name">§7</div><div class="gt-desc">Cryptographic computations: the key schedule, traffic key updates, (EC)DHE, exporters</div></div>
+    <div class="gt-row gt-2"><div class="gt-name">§8</div><div class="gt-desc">0-RTT and anti-replay — the three mitigation strategies</div></div>
+    <div class="gt-row gt-2"><div class="gt-name">§9</div><div class="gt-desc">Compliance requirements — the mandatory-to-implement set</div></div>
+    <div class="gt-row gt-2"><div class="gt-name">Appendix A</div><div class="gt-desc">State machine diagrams for client and server</div></div>
+    <div class="gt-row gt-2"><div class="gt-name">Appendix B</div><div class="gt-desc">Protocol data structures and constant values, including the cipher suite registry</div></div>
+    <div class="gt-row gt-2"><div class="gt-name">Appendix D</div><div class="gt-desc">Backward compatibility, including middlebox compatibility mode</div></div>
+    <div class="gt-row gt-2"><div class="gt-name">Appendix E</div><div class="gt-desc">Overview of security properties — the formal-analysis-facing summary</div></div>
+  </div>
+
+  <details>
+    <summary>Extensions you'll actually encounter, and what they do</summary>
+    <div class="details-body">
+      <p><code>supported_versions</code> (43) — the real version negotiation. <code>key_share</code> (51) — the DH public keys that make 1-RTT possible. <code>signature_algorithms</code> (13) — which signature schemes the peer accepts in CertificateVerify. <code>signature_algorithms_cert</code> (50) — separately, which are acceptable <em>inside certificates</em>. <code>pre_shared_key</code> (41) — resumption identities plus binders; must be the last extension. <code>psk_key_exchange_modes</code> (45) — whether resumption may include a fresh DH exchange. <code>early_data</code> (42) — request/accept 0-RTT. <code>cookie</code> (44) — lets a stateless server carry state across a HelloRetryRequest. <code>server_name</code> (0) and <code>application_layer_protocol_negotiation</code> (16) — carried over from earlier versions, now acknowledged inside EncryptedExtensions.</p>
+    </div>
+  </details>
+</section>
+
+<footer>
+  Source: RFC 8446 — <a href="https://datatracker.ietf.org/doc/html/rfc8446">datatracker.ietf.org/doc/html/rfc8446</a> · E. Rescorla, Mozilla · August 2018 · Standards Track
+</footer>
+
+</div>
+</body>
+</html>
