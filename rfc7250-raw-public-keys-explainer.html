@@ -1,0 +1,1676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RFC 7250 — Raw Public Keys in TLS/DTLS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ============ PLANNOTATOR THEME TOKENS ============ */
+  :root {
+    --background: oklch(0.97 0.005 260);
+    --foreground: oklch(0.18 0.02 260);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.18 0.02 260);
+    --muted: oklch(0.92 0.01 260);
+    --muted-foreground: oklch(0.40 0.02 260);
+
+    --primary: oklch(0.50 0.25 280);
+    --primary-foreground: oklch(1 0 0);
+    --secondary: oklch(0.50 0.18 180);
+    --accent: oklch(0.60 0.22 50);
+    --accent-foreground: oklch(0.18 0.02 260);
+
+    --destructive: oklch(0.50 0.25 25);
+    --success: oklch(0.45 0.20 150);
+    --warning: oklch(0.55 0.18 85);
+
+    --border: oklch(0.88 0.01 260);
+    --code-bg: oklch(0.92 0.01 260);
+    --ring: oklch(0.50 0.25 280);
+    --radius: 0.625rem;
+
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+    --font-display: ui-serif, Georgia, 'Times New Roman', serif;
+
+    /* visual-explainer aliases */
+    --bg: var(--background);
+    --surface: var(--card);
+    --surface-elevated: var(--card);
+    --text: var(--foreground);
+    --text-dim: var(--muted-foreground);
+    --border-bright: color-mix(in oklab, var(--border) 60%, var(--foreground) 40%);
+    --primary-dim: color-mix(in oklab, var(--primary) 12%, transparent);
+    --accent-dim: color-mix(in oklab, var(--accent) 14%, transparent);
+    --secondary-dim: color-mix(in oklab, var(--secondary) 14%, transparent);
+    --success-dim: color-mix(in oklab, var(--success) 14%, transparent);
+    --warning-dim: color-mix(in oklab, var(--warning) 16%, transparent);
+    --destructive-dim: color-mix(in oklab, var(--destructive) 12%, transparent);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: oklch(0.15 0.02 260);
+      --foreground: oklch(0.90 0.01 260);
+      --card: oklch(0.22 0.02 260);
+      --card-foreground: oklch(0.90 0.01 260);
+      --muted: oklch(0.26 0.02 260);
+      --muted-foreground: oklch(0.72 0.02 260);
+      --primary: oklch(0.75 0.18 280);
+      --primary-foreground: oklch(0.15 0.02 260);
+      --secondary: oklch(0.72 0.14 180);
+      --accent: oklch(0.70 0.20 60);
+      --border: oklch(0.35 0.02 260);
+      --code-bg: oklch(0.26 0.02 260);
+      --destructive: oklch(0.65 0.20 25);
+      --success: oklch(0.72 0.17 150);
+      --warning: oklch(0.75 0.15 85);
+    }
+  }
+
+  /* ============ RESET + BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background-color: var(--background);
+    background-image:
+      radial-gradient(ellipse at 12% -6%, color-mix(in oklab, var(--primary) 12%, transparent) 0%, transparent 55%),
+      radial-gradient(ellipse at 92% 4%, color-mix(in oklab, var(--secondary) 10%, transparent) 0%, transparent 50%);
+    background-attachment: fixed;
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.65;
+    padding: 40px;
+    min-height: 100vh;
+    overflow-wrap: break-word;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--primary); text-decoration-color: color-mix(in oklab, var(--primary) 40%, transparent); text-underline-offset: 2px; }
+  a:hover { text-decoration-color: var(--primary); }
+
+  h2, h3 { text-wrap: balance; }
+
+  /* ============ ANIMATION ============ */
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeScale { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: scale(1); } }
+  .animate { animation: fadeUp 0.45s ease-out both; animation-delay: calc(var(--i, 0) * 0.05s); }
+  .kpi-card { animation: fadeScale 0.4s ease-out both; animation-delay: calc(var(--i, 0) * 0.06s); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* ============ LAYOUT ============ */
+  .wrap {
+    max-width: 1320px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 190px 1fr;
+    gap: 0 44px;
+  }
+  .main { min-width: 0; max-width: 900px; }
+  .main > * { min-width: 0; }
+
+  .toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    padding: 14px 0;
+    grid-row: 1 / -1;
+    max-height: calc(100dvh - 48px);
+    overflow-y: auto;
+  }
+  .toc::-webkit-scrollbar { width: 3px; }
+  .toc::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .toc-title {
+    font-family: var(--font-mono);
+    font-size: 9px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 2px;
+    color: var(--muted-foreground);
+    padding: 0 0 10px; margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .toc a {
+    display: block; font-size: 11.5px;
+    color: var(--muted-foreground); text-decoration: none;
+    padding: 5px 9px; border-radius: 5px;
+    border-left: 2px solid transparent;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+    line-height: 1.4; margin-bottom: 1px;
+  }
+  .toc a:hover { color: var(--foreground); background: var(--muted); }
+  .toc a.active { color: var(--foreground); border-left-color: var(--primary); background: var(--primary-dim); }
+
+  /* ============ HEADER ============ */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 2.2px;
+    color: var(--primary);
+    margin-bottom: 14px;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  }
+  .eyebrow .sep { color: var(--border-bright); }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(34px, 4.6vw, 52px);
+    font-weight: 600; line-height: 1.05;
+    letter-spacing: -1.2px;
+    margin-bottom: 14px;
+    text-wrap: balance;
+  }
+
+  .standfirst {
+    font-size: 18px; line-height: 1.6;
+    color: var(--muted-foreground);
+    max-width: 68ch; margin-bottom: 22px;
+  }
+  .standfirst strong { color: var(--foreground); font-weight: 600; }
+
+  .meta-strip {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    font-family: var(--font-mono); font-size: 11px;
+    margin-bottom: 36px;
+  }
+  .meta-chip {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 999px; padding: 4px 12px;
+    color: var(--muted-foreground);
+  }
+  .meta-chip strong { color: var(--foreground); font-weight: 600; }
+
+  /* ============ SECTION HEADS ============ */
+  .sec-head {
+    display: flex; align-items: baseline; gap: 14px;
+    margin: 64px 0 8px;
+    padding-bottom: 12px;
+    border-bottom: 1.5px solid var(--border);
+    scroll-margin-top: 24px;
+  }
+  .sec-head__num {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+    color: var(--primary); letter-spacing: 1.5px;
+    flex-shrink: 0;
+  }
+  .sec-head__title {
+    font-family: var(--font-display);
+    font-size: 27px; font-weight: 600; letter-spacing: -0.5px;
+    line-height: 1.2;
+  }
+  .sec-intro { color: var(--muted-foreground); margin: 16px 0 24px; max-width: 72ch; }
+  .sec-intro + .sec-intro { margin-top: -12px; }
+
+  p code, li code, td code, .sec-intro code {
+    font-family: var(--font-mono); font-size: 0.86em;
+    background: var(--code-bg); color: var(--foreground);
+    padding: 1.5px 5px; border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  /* ============ CARDS ============ */
+  .ve-card {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    position: relative;
+    min-width: 0;
+  }
+  .ve-card--hero {
+    background: color-mix(in oklab, var(--primary) 5%, var(--card));
+    border-color: color-mix(in oklab, var(--border) 40%, var(--primary) 60%);
+    box-shadow: 0 4px 24px color-mix(in oklab, var(--primary) 10%, transparent);
+  }
+  .ve-card--recessed { background: var(--muted); border-color: transparent; }
+  .ve-card__label {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--primary);
+    margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .ve-card__label::before {
+    content: ''; width: 8px; height: 8px; border-radius: 50%;
+    background: currentColor; flex-shrink: 0;
+  }
+  .ve-card__label--accent { color: var(--accent); }
+  .ve-card__label--secondary { color: var(--secondary); }
+  .ve-card__label--success { color: var(--success); }
+  .ve-card__label--warning { color: var(--warning); }
+  .ve-card__label--destructive { color: var(--destructive); }
+  .ve-card h3 { font-size: 16px; font-weight: 600; margin-bottom: 8px; }
+  .ve-card p { font-size: 13.5px; line-height: 1.6; color: var(--muted-foreground); }
+  .ve-card p + p { margin-top: 10px; }
+  .ve-card strong { color: var(--foreground); font-weight: 600; }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 16px;
+  }
+  .card-grid > * { min-width: 0; }
+  .card-grid--2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+
+  /* ============ KPI ============ */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+    gap: 14px;
+    margin-bottom: 8px;
+  }
+  .kpi-row > * { min-width: 0; }
+  .kpi-card {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+  }
+  .kpi-card__value {
+    font-family: var(--font-display);
+    font-size: 32px; font-weight: 600;
+    letter-spacing: -1px; line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+    color: var(--primary);
+  }
+  .kpi-card__value small { font-size: 15px; letter-spacing: 0; color: var(--muted-foreground); }
+  .kpi-card__label {
+    font-family: var(--font-mono); font-size: 9.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1.4px;
+    color: var(--muted-foreground); margin-top: 8px;
+  }
+  .kpi-card__note { font-size: 12px; color: var(--muted-foreground); margin-top: 6px; line-height: 1.45; }
+
+  /* ============ LISTS ============ */
+  .node-list { list-style: none; padding: 0; margin: 0; font-size: 13.5px; line-height: 1.7; }
+  .node-list li { padding-left: 16px; position: relative; color: var(--muted-foreground); }
+  .node-list li + li { margin-top: 6px; }
+  .node-list li::before {
+    content: '\203A'; color: var(--primary); font-weight: 700;
+    position: absolute; left: 0;
+  }
+  .node-list strong { color: var(--foreground); font-weight: 600; }
+
+  /* ============ CODE ============ */
+  .code-file {
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--card);
+  }
+  .code-file + .code-file { margin-top: 16px; }
+  .code-file__header {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 16px;
+    background: var(--muted);
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted-foreground);
+    text-transform: uppercase; letter-spacing: 1px; font-weight: 600;
+  }
+  .code-file__body {
+    font-family: var(--font-mono);
+    font-size: 12.5px; line-height: 1.65;
+    padding: 16px 18px;
+    background: var(--code-bg);
+    white-space: pre-wrap; word-break: break-word;
+    overflow-x: auto;
+    color: var(--foreground);
+  }
+  .code-file__body--wide { white-space: pre; word-break: normal; font-size: 11.5px; }
+  .kw  { color: var(--primary); font-weight: 600; }
+  .fn  { color: var(--accent); }
+  .str { color: var(--success); }
+  .cm  { color: var(--muted-foreground); font-style: italic; }
+  .num { color: var(--warning); }
+  .hi  { background: var(--primary-dim); border-radius: 3px; padding: 0 2px; font-weight: 600; }
+
+  /* ============ TABLE ============ */
+  .table-wrap {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 1.55; }
+  .data-table th {
+    background: var(--muted);
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.1px;
+    color: var(--muted-foreground);
+    text-align: left; padding: 11px 16px;
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+  }
+  .data-table td {
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top; color: var(--foreground);
+  }
+  .data-table td.wide { min-width: 240px; }
+  .data-table tbody tr:last-child td { border-bottom: none; }
+  .data-table small { display: block; color: var(--muted-foreground); font-size: 11.5px; margin-top: 3px; }
+  .data-table code {
+    font-family: var(--font-mono); font-size: 11px;
+    background: var(--code-bg); border: 1px solid var(--border);
+    padding: 1px 5px; border-radius: 3px;
+  }
+  .table-caption {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted-foreground); margin-top: 10px;
+  }
+
+  .status {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+    letter-spacing: 0.6px;
+    padding: 3px 9px; border-radius: 5px; white-space: nowrap;
+  }
+  .status--must { background: var(--destructive-dim); color: var(--destructive); }
+  .status--should { background: var(--warning-dim); color: var(--warning); }
+  .status--may { background: var(--secondary-dim); color: var(--secondary); }
+  .status--ok { background: var(--success-dim); color: var(--success); }
+  .status--info { background: var(--primary-dim); color: var(--primary); }
+
+  /* ============ SIZE BARS ============ */
+  .sizebar { display: grid; grid-template-columns: minmax(120px, 190px) 1fr; gap: 10px 14px; align-items: center; }
+  .sizebar__label {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+    color: var(--muted-foreground); text-align: right; line-height: 1.3;
+  }
+  .sizebar__track { background: var(--muted); border-radius: 6px; height: 30px; overflow: hidden; }
+  .sizebar__fill {
+    height: 100%; border-radius: 6px;
+    display: flex; align-items: center; padding: 0 10px;
+    font-family: var(--font-mono); font-size: 11px; font-weight: 700;
+    white-space: nowrap; min-width: 62px;
+  }
+  .sizebar__fill--rpk {
+    background: var(--success-dim);
+    border: 1.5px solid color-mix(in oklab, var(--success) 55%, transparent);
+    color: var(--success);
+  }
+  .sizebar__fill--x509 {
+    background: var(--accent-dim);
+    border: 1.5px solid color-mix(in oklab, var(--accent) 55%, transparent);
+    color: var(--accent);
+  }
+  @media (max-width: 620px) {
+    .sizebar { grid-template-columns: 1fr; }
+    .sizebar__label { text-align: left; }
+  }
+
+  /* ============ CALLOUT ============ */
+  .callout {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-left: 4px solid var(--primary);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 16px 20px;
+    font-size: 13.5px; line-height: 1.6;
+    color: var(--muted-foreground);
+    margin: 22px 0;
+  }
+  .callout strong { color: var(--foreground); }
+  .callout__title {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1.5px;
+    color: var(--primary); margin-bottom: 7px;
+  }
+  .callout--warning { border-left-color: var(--warning); }
+  .callout--warning .callout__title { color: var(--warning); }
+  .callout--danger { border-left-color: var(--destructive); }
+  .callout--danger .callout__title { color: var(--destructive); }
+  .callout--accent { border-left-color: var(--accent); }
+  .callout--accent .callout__title { color: var(--accent); }
+  .callout--success { border-left-color: var(--success); }
+  .callout--success .callout__title { color: var(--success); }
+  .callout ul { padding-left: 1.4em; margin: 8px 0 0; }
+  .callout li + li { margin-top: 5px; }
+
+  /* ============ MERMAID ============ */
+  .diagram-shell { position: relative; margin: 8px 0 4px; }
+  .diagram-shell__hint {
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--muted-foreground); margin-bottom: 8px; opacity: 0.75;
+  }
+  .mermaid-wrap {
+    position: relative;
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 20px;
+    overflow: auto;
+    display: flex; justify-content: center; align-items: center;
+    min-height: 380px;
+    cursor: grab;
+  }
+  .mermaid-wrap.is-panning { cursor: grabbing; user-select: none; }
+  .zoom-controls {
+    position: absolute; top: 8px; right: 8px;
+    display: flex; gap: 2px; z-index: 10;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px; padding: 2px;
+  }
+  .zoom-controls button {
+    width: 28px; height: 28px; border: none;
+    background: transparent; color: var(--muted-foreground);
+    font-family: var(--font-mono); font-size: 13px;
+    cursor: pointer; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .zoom-controls button:hover { background: var(--muted); color: var(--foreground); }
+  .mermaid-viewport { position: relative; overflow: hidden; width: 100%; height: 100%; min-height: 300px; }
+  .mermaid-canvas { position: absolute; top: 0; left: 0; }
+  .zoom-label {
+    font-family: var(--font-mono); font-size: 9.5px;
+    color: var(--muted-foreground); padding: 0 6px; white-space: nowrap;
+    display: flex; align-items: center;
+  }
+  .mermaid .nodeLabel { font-family: var(--font-sans) !important; font-size: 15px !important; }
+  .mermaid .edgeLabel { font-family: var(--font-mono) !important; font-size: 12px !important; }
+  .mermaid .node rect, .mermaid .node polygon { stroke-width: 1.5px !important; }
+
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; }
+  .legend-item {
+    display: flex; align-items: center; gap: 7px;
+    font-family: var(--font-mono); font-size: 10.5px;
+    color: var(--muted-foreground);
+  }
+  .legend-swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+  /* ============ COLLAPSIBLE ============ */
+  details.collapsible {
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--card);
+  }
+  details.collapsible + details.collapsible { margin-top: 12px; }
+  details.collapsible summary {
+    padding: 14px 20px;
+    background: var(--card);
+    font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+    cursor: pointer; list-style: none;
+    display: flex; align-items: center; gap: 10px;
+    color: var(--foreground);
+    transition: background 0.15s ease;
+  }
+  details.collapsible summary:hover { background: var(--muted); }
+  details.collapsible summary::-webkit-details-marker { display: none; }
+  details.collapsible summary::before {
+    content: '\25B8'; font-size: 11px; color: var(--primary);
+    transition: transform 0.15s ease; flex-shrink: 0;
+  }
+  details.collapsible[open] summary::before { transform: rotate(90deg); }
+  .collapsible__body {
+    padding: 18px 20px;
+    border-top: 1px solid var(--border);
+    font-size: 13.5px; line-height: 1.65;
+    color: var(--muted-foreground);
+  }
+  .collapsible__body p + p { margin-top: 12px; }
+  .collapsible__body strong { color: var(--foreground); }
+
+  .stack > * + * { margin-top: 16px; }
+  .footnote {
+    font-size: 12px; color: var(--muted-foreground);
+    margin-top: 12px; line-height: 1.55;
+  }
+
+  footer.page-foot {
+    margin-top: 72px; padding-top: 24px;
+    border-top: 1.5px solid var(--border);
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted-foreground);
+    display: flex; flex-wrap: wrap; gap: 8px 20px;
+  }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 1000px) {
+    body { padding: 0 20px 40px; }
+    .wrap { grid-template-columns: 1fr; }
+    .toc {
+      position: sticky; top: 0; z-index: 200;
+      max-height: none;
+      display: flex; gap: 4px; align-items: center;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      background: var(--background);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px; margin: 0 -20px;
+      grid-row: auto;
+    }
+    .toc::-webkit-scrollbar { display: none; }
+    .toc-title { display: none; }
+    .toc a {
+      white-space: nowrap; flex-shrink: 0;
+      border-left: none; border-bottom: 2px solid transparent;
+      border-radius: 4px 4px 0 0; padding: 6px 10px; font-size: 10.5px;
+    }
+    .toc a.active { border-left: none; border-bottom-color: var(--primary); }
+    .main { padding-top: 24px; }
+    .sec-head { scroll-margin-top: 56px; margin-top: 52px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav class="toc" id="toc">
+    <div class="toc-title">Contents</div>
+    <a href="#s1">1. The cert you don't need</a>
+    <a href="#s2">2. The container</a>
+    <a href="#s3">3. Two extensions</a>
+    <a href="#s4">4. Negotiation rules</a>
+    <a href="#s5">5. Three handshakes</a>
+    <a href="#s6">6. Where trust comes from</a>
+    <a href="#s7">7. Security</a>
+    <a href="#s8">8. On the wire</a>
+    <a href="#s9">9. TLS 1.3 &amp; IANA</a>
+  </nav>
+
+  <div class="main">
+
+    <div class="eyebrow animate" style="--i:0">
+      <span>RFC 7250</span><span class="sep">/</span>
+      <span>Standards Track</span><span class="sep">/</span>
+      <span>June 2014</span>
+    </div>
+
+    <h1 class="animate" style="--i:1">Raw Public Keys in TLS&nbsp;/&nbsp;DTLS</h1>
+
+    <p class="standfirst animate" style="--i:2">
+      A certificate is a public key plus a signed set of claims about who owns it. If you already know who owns
+      the key — because you provisioned it, or you looked it up in DNSSEC — the claims are dead weight.
+      RFC 7250 lets the <code>Certificate</code> message carry <strong>just the key</strong>, and adds two extensions
+      so both sides agree on which format is in the envelope.
+    </p>
+
+    <div class="meta-strip animate" style="--i:3">
+      <span class="meta-chip">P. Wouters (ed.) <strong>Red Hat</strong></span>
+      <span class="meta-chip">H. Tschofenig (ed.) <strong>ARM</strong></span>
+      <span class="meta-chip">J. Gilmore <strong>EFF</strong></span>
+      <span class="meta-chip">S. Weiler <strong>Parsons</strong></span>
+      <span class="meta-chip">T. Kivinen <strong>INSIDE Secure</strong></span>
+      <span class="meta-chip">ISSN <strong>2070-1721</strong></span>
+    </div>
+
+    <div class="ve-card ve-card--hero animate" style="--i:4">
+      <div class="ve-card__label">The whole spec in four lines</div>
+      <ul class="node-list">
+        <li>The <code>Certificate</code> message becomes a <strong>container</strong>: it holds either an X.509 chain, as always, or a bare <code>SubjectPublicKeyInfo</code>.</li>
+        <li>Two extensions — <code>client_certificate_type</code> and <code>server_certificate_type</code> — negotiate which format goes in it, <strong>independently in each direction</strong>.</li>
+        <li>Nothing else changes. <strong>No new cipher suites, no new handshake messages</strong>, no change to key exchange or to how <code>Finished</code> is computed.</li>
+        <li>On its own it authenticates <strong>nothing</strong>. Binding that key to an identity happens entirely out-of-band — DANE, or a key burned in at manufacture.</li>
+      </ul>
+    </div>
+
+    <div class="kpi-row" style="margin-top:28px">
+      <div class="kpi-card" style="--i:0">
+        <div class="kpi-card__value">2</div>
+        <div class="kpi-card__label">New extensions</div>
+        <p class="kpi-card__note">One per direction, in both hellos.</p>
+      </div>
+      <div class="kpi-card" style="--i:1">
+        <div class="kpi-card__value">1</div>
+        <div class="kpi-card__label">New code point</div>
+        <p class="kpi-card__note"><code>RawPublicKey&nbsp;=&nbsp;2</code> in the TLS Certificate Types registry.</p>
+      </div>
+      <div class="kpi-card" style="--i:2">
+        <div class="kpi-card__value">0</div>
+        <div class="kpi-card__label">New cipher suites</div>
+        <p class="kpi-card__note">Any suite with a compatible key exchange works.</p>
+      </div>
+      <div class="kpi-card" style="--i:3">
+        <div class="kpi-card__value">162 <small>B</small></div>
+        <div class="kpi-card__label">The RFC's example key</div>
+        <p class="kpi-card__note">A complete RSA-1024 SPKI, DER-encoded. See §8.</p>
+      </div>
+    </div>
+
+    <!-- ============ 1 ============ -->
+    <div class="sec-head" id="s1">
+      <span class="sec-head__num">01</span>
+      <span class="sec-head__title">The certificate you don't need</span>
+    </div>
+
+    <p class="sec-intro">
+      PKIX certificates solve a specific problem: you are talking to a stranger, and a third party you both
+      trust vouches for their key. Plenty of TLS deployments are not that. The endpoints already know each other's
+      keys, and the certificate is a formality that still has to be generated, shipped, parsed, and validated.
+    </p>
+
+    <div class="card-grid animate" style="--i:0">
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--warning">The status quo it replaces</div>
+        <h3>Self-signed, distributed by hand</h3>
+        <p>
+          Small deployments already push self-signed certificates to every endpoint out-of-band. The trust
+          comes from the distribution, not the signature — yet you still pay for <strong>certificate generation and
+          parsing when none of the fields are used</strong>.
+        </p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--accent">The driving use case</div>
+        <h3>Smart objects over DTLS</h3>
+        <p>
+          A sensor speaking <a href="https://www.rfc-editor.org/rfc/rfc7252">CoAP</a> over DTLS can be configured
+          at manufacture with its server's address and public key, plus its own key pair. Over-the-air bytes and
+          firmware code size are both scarce; <strong>a chain validator is a lot of flash</strong>.
+        </p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--secondary">Keys arrive some other way</div>
+        <h3>DANE, LDAP, firmware</h3>
+        <p>
+          A key can come from a DNSSEC-secured TLSA record, from a PKIX chain fetched over LDAP or the web, or
+          from the OS image and its update channel. In all three, <strong>the in-band certificate is redundant</strong>
+          with a path you already trust more.
+        </p>
+      </div>
+    </div>
+
+    <p class="sec-intro" style="margin-top:28px">
+      What you actually save: certificate framing, and the code that walks it. Sizes below are illustrative —
+      the RFC quotes none — but the shape is the point.
+    </p>
+
+    <div class="ve-card animate" style="--i:1">
+      <div class="ve-card__label ve-card__label--success">Bytes in the Certificate payload</div>
+      <div class="sizebar">
+        <div class="sizebar__label">Raw public key<br>ECDSA P-256 SPKI</div>
+        <div class="sizebar__track"><div class="sizebar__fill sizebar__fill--rpk" style="width:5.7%">91 B</div></div>
+
+        <div class="sizebar__label">Raw public key<br>RSA-1024 SPKI <span style="opacity:.7">(RFC example)</span></div>
+        <div class="sizebar__track"><div class="sizebar__fill sizebar__fill--rpk" style="width:10.1%">162 B</div></div>
+
+        <div class="sizebar__label">X.509<br>leaf certificate</div>
+        <div class="sizebar__track"><div class="sizebar__fill sizebar__fill--x509" style="width:50%">~800 B</div></div>
+
+        <div class="sizebar__label">X.509<br>leaf + intermediate</div>
+        <div class="sizebar__track"><div class="sizebar__fill sizebar__fill--x509" style="width:100%">~1600 B</div></div>
+      </div>
+      <p class="footnote">
+        The saving is not only transmission. A raw public key needs <strong>a minimalist ASN.1 parser and nothing
+        else</strong> — no path building, no name constraints, no validity windows, no revocation checking. That code
+        never ships, so it never has a bug.
+      </p>
+    </div>
+
+    <div class="callout callout--accent animate" style="--i:2">
+      <div class="callout__title">"Raw" does not mean unencoded</div>
+      The key is still a DER-encoded ASN.1 <code>SubjectPublicKeyInfo</code> — lifted verbatim out of the PKIX
+      certificate format, length prefixes and algorithm OID included. RFC 7250 removes the <em>certificate</em>,
+      not the <em>encoding</em>. If you want to go smaller still, it composes with the TLS Cached Info extension
+      (<a href="https://www.rfc-editor.org/rfc/rfc7924">RFC 7924</a>), where peers exchange only fingerprints of
+      keys they have already seen.
+    </div>
+
+    <!-- ============ 2 ============ -->
+    <div class="sec-head" id="s2">
+      <span class="sec-head__num">02</span>
+      <span class="sec-head__title">The container: one message, two shapes</span>
+    </div>
+
+    <p class="sec-intro">
+      No new message carries the key. The existing <code>Certificate</code> payload is redefined as a
+      <code>select</code> over the negotiated certificate type — which is exactly why the negotiation in §3 is
+      mandatory rather than optional. Without it, the receiver cannot tell an SPKI from a certificate list.
+    </p>
+
+    <div class="code-file animate" style="--i:0">
+      <div class="code-file__header"><span>Figure 1 &mdash; Certificate payload as a container</span></div>
+      <pre class="code-file__body"><code><span class="kw">opaque</span> ASN.1Cert&lt;<span class="num">1</span>..<span class="num">2^24-1</span>&gt;;
+
+<span class="kw">struct</span> {
+    <span class="kw">select</span>(certificate_type){
+
+         <span class="cm">// certificate type defined in this document.</span>
+         <span class="kw">case</span> <span class="hi">RawPublicKey</span>:
+           <span class="kw">opaque</span> ASN.1_subjectPublicKeyInfo&lt;<span class="num">1</span>..<span class="num">2^24-1</span>&gt;;
+
+        <span class="cm">// X.509 certificate defined in RFC 5246</span>
+        <span class="kw">case</span> X.509:
+          <span class="fn">ASN.1Cert</span> certificate_list&lt;<span class="num">0</span>..<span class="num">2^24-1</span>&gt;;
+
+        <span class="cm">// Additional certificate type based on</span>
+        <span class="cm">// "TLS Certificate Types" subregistry</span>
+    };
+} <span class="fn">Certificate</span>;</code></pre>
+    </div>
+
+    <p class="sec-intro" style="margin-top:28px">
+      What goes in the <code>RawPublicKey</code> arm is the standard PKIX structure from
+      <a href="https://www.rfc-editor.org/rfc/rfc5280#section-4.1">RFC 5280 §4.1</a>. Note that it carries an
+      <strong>algorithm identifier as well as the key material</strong> — so the receiver still learns "this is an
+      RSA key" without any out-of-band agreement on algorithms.
+    </p>
+
+    <div class="card-grid card-grid--2 animate" style="--i:1">
+      <div class="code-file">
+        <div class="code-file__header"><span>Figure 2 &mdash; SubjectPublicKeyInfo</span></div>
+        <pre class="code-file__body"><code><span class="fn">SubjectPublicKeyInfo</span> ::= <span class="kw">SEQUENCE</span> {
+    algorithm         <span class="fn">AlgorithmIdentifier</span>,
+    subjectPublicKey  <span class="kw">BIT STRING</span> }
+
+<span class="fn">AlgorithmIdentifier</span> ::= <span class="kw">SEQUENCE</span> {
+    algorithm         <span class="kw">OBJECT IDENTIFIER</span>,
+    parameters        <span class="kw">ANY DEFINED BY</span> algorithm
+                        <span class="kw">OPTIONAL</span> }</code></pre>
+      </div>
+      <div class="table-wrap">
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead><tr><th>Key type</th><th>OID</th></tr></thead>
+            <tbody>
+              <tr><td>RSA<small>RFC 3279 §2.3.1</small></td><td><code>1.2.840.113549.1.1</code></td></tr>
+              <tr><td>DSA<small>RFC 3279 §2.3.2</small></td><td><code>1.2.840.10040.4.1</code></td></tr>
+              <tr><td>ECDSA<small>RFC 5480 §2</small></td><td><code>1.2.840.10045.2.1</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <p class="table-caption">Figure 3 &mdash; examples only; the list is explicitly non-exhaustive and grows with new RFCs.</p>
+
+    <div class="callout animate" style="--i:2">
+      <div class="callout__title">One hard requirement</div>
+      The value in the <code>Certificate</code> payload <strong>MUST be the DER encoding</strong> of the
+      <code>SubjectPublicKeyInfo</code> — not BER, not a bare key. DER is canonical, so the structure is
+      self-delimiting and every implementation produces identical bytes for the same key. That matters when
+      an out-of-band mechanism has published a <em>hash</em> of those bytes.
+    </div>
+
+    <!-- ============ 3 ============ -->
+    <div class="sec-head" id="s3">
+      <span class="sec-head__num">03</span>
+      <span class="sec-head__title">Two extensions, two directions</span>
+    </div>
+
+    <p class="sec-intro">
+      This is the part people get backwards. There is no single "we're using raw public keys" flag. Each
+      <em>direction</em> of authentication is negotiated on its own, so the client can present a raw key while
+      the server presents an X.509 chain — or any other combination.
+    </p>
+
+    <div class="code-file animate" style="--i:0">
+      <div class="code-file__header"><span>Figure 4 &mdash; CertTypeExtension structures</span></div>
+      <pre class="code-file__body"><code><span class="kw">struct</span> {
+        <span class="kw">select</span>(ClientOrServerExtension) {
+            <span class="kw">case</span> client:
+              <span class="fn">CertificateType</span> client_certificate_types&lt;<span class="num">1</span>..<span class="num">2^8-1</span>&gt;;   <span class="cm">// a list</span>
+            <span class="kw">case</span> server:
+              <span class="fn">CertificateType</span> client_certificate_type;                <span class="cm">// exactly one</span>
+        }
+} <span class="fn">ClientCertTypeExtension</span>;
+
+<span class="kw">struct</span> {
+        <span class="kw">select</span>(ClientOrServerExtension) {
+            <span class="kw">case</span> client:
+              <span class="fn">CertificateType</span> server_certificate_types&lt;<span class="num">1</span>..<span class="num">2^8-1</span>&gt;;   <span class="cm">// a list</span>
+            <span class="kw">case</span> server:
+              <span class="fn">CertificateType</span> server_certificate_type;                <span class="cm">// exactly one</span>
+        }
+} <span class="fn">ServerCertTypeExtension</span>;</code></pre>
+    </div>
+
+    <p class="sec-intro" style="margin-top:28px">
+      The same extension name means something different depending on who sent it. Read the grid one row at a time:
+    </p>
+
+    <div class="table-wrap animate" style="--i:1">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>Extension</th><th>In ClientHello</th><th>In ServerHello</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>client_certificate_type</code><small>about the client's own credential</small></td>
+              <td class="wide">"Here are the types <strong>I can provide</strong> if you send a <code>certificate_request</code>" — a list, in descending preference.</td>
+              <td class="wide">"Send me <strong>this</strong> type" — one value, chosen from the client's list. Must be accompanied by a <code>certificate_request</code>.</td>
+            </tr>
+            <tr>
+              <td><code>server_certificate_type</code><small>about the server's credential</small></td>
+              <td class="wide">"Here are the types <strong>I can process</strong> when you send yours" — a list, in descending preference.</td>
+              <td class="wide">"This is what is <strong>in my Certificate payload</strong>" — one value. This is what resolves the parsing ambiguity of §2.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p class="table-caption">Client side = a preference list. Server side = a single decision. Never more than one value in a ServerHello.</p>
+
+    <div class="callout callout--accent animate" style="--i:2">
+      <div class="callout__title">Values come from an existing registry</div>
+      <code>CertificateType</code> is not new — it is the "TLS Certificate Types" subregistry, which already held
+      <code>X.509 (0)</code> and <code>OpenPGP (1)</code>. RFC 7250 adds <code>RawPublicKey (2)</code> and reuses
+      the enum wholesale, which is why the extensions can negotiate formats this document never mentions. That
+      registry-reuse design was contributed by Nikos Mavrogiannopoulos and is the reason the mechanism generalised
+      beyond raw keys.
+    </div>
+
+    <!-- ============ 4 ============ -->
+    <div class="sec-head" id="s4">
+      <span class="sec-head__num">04</span>
+      <span class="sec-head__title">Negotiation rules</span>
+    </div>
+
+    <p class="sec-intro">
+      The whole protocol change lives in the two hello messages. Everything after that is ordinary TLS —
+      Figure 5 below is just RFC 5246's handshake with two extensions bolted onto the hellos.
+    </p>
+
+    <section class="diagram-shell animate" style="--i:0">
+      <p class="diagram-shell__hint">Ctrl/Cmd + wheel to zoom &middot; drag to pan &middot; double-click to fit &middot; &#x26F6; opens full size</p>
+      <div class="mermaid-wrap">
+        <div class="zoom-controls">
+          <button type="button" data-action="zoom-in" title="Zoom in">+</button>
+          <button type="button" data-action="zoom-out" title="Zoom out">&minus;</button>
+          <button type="button" data-action="zoom-fit" title="Smart fit">&#8634;</button>
+          <button type="button" data-action="zoom-one" title="1:1 zoom">1:1</button>
+          <button type="button" data-action="zoom-expand" title="Open full size">&#x26F6;</button>
+          <span class="zoom-label">Loading...</span>
+        </div>
+        <div class="mermaid-viewport"><div class="mermaid mermaid-canvas"></div></div>
+      </div>
+      <script type="text/plain" class="diagram-source">
+sequenceDiagram
+    autonumber
+    participant C as TLS Client
+    participant S as TLS Server
+
+    C->>S: client_hello<br/>+ client_certificate_type = (list I can send)<br/>+ server_certificate_type = (list I can parse)
+
+    Note over S: Pick one type per direction<br/>from the client's lists
+
+    S->>C: server_hello<br/>+ client_certificate_type = one value<br/>+ server_certificate_type = one value
+    S->>C: certificate  (SPKI or X.509, per server_certificate_type)
+    S->>C: server_key_exchange
+    S->>C: certificate_request  (only if asking the client to authenticate)
+    S->>C: server_hello_done
+
+    C->>S: certificate  (SPKI or X.509, per client_certificate_type)
+    C->>S: client_key_exchange
+    C->>S: certificate_verify
+    C->>S: change_cipher_spec, finished
+
+    S->>C: change_cipher_spec, finished
+
+    C-->>S: Application Data
+      </script>
+    </section>
+
+    <div class="legend animate" style="--i:1">
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--primary)"></div> Figure 5 &mdash; basic raw public key exchange</div>
+      <div class="legend-item"><div class="legend-swatch" style="background:var(--muted-foreground)"></div> Unchanged from RFC 5246</div>
+    </div>
+
+    <p class="sec-intro" style="margin-top:32px">
+      The normative rules are mostly about <em>silence</em>: don't advertise what you can't do, and don't say
+      anything when X.509 is the answer.
+    </p>
+
+    <div class="table-wrap animate" style="--i:2">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>Who</th><th></th><th class="wide">Rule</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Client</td>
+              <td><span class="status status--must">MUST</span></td>
+              <td class="wide">Omit from <code>client_certificate_type</code> any type it doesn't hold a credential for, or isn't configured to use with <em>this</em> server.</td>
+            </tr>
+            <tr>
+              <td>Client</td>
+              <td><span class="status status--must">MUST</span></td>
+              <td class="wide">Omit from <code>server_certificate_type</code> any type it cannot process.</td>
+            </tr>
+            <tr>
+              <td>Client</td>
+              <td><span class="status status--must">MUST</span></td>
+              <td class="wide">Omit <strong>the entire extension</strong> if the only type left is X.509 — that's the default, and saying so adds nothing.</td>
+            </tr>
+            <tr>
+              <td>Server</td>
+              <td><span class="status status--must">MUST</span></td>
+              <td class="wide">Include <code>client_certificate_type</code> in the ServerHello <em>only together with</em> a <code>certificate_request</code>, and pick a value from the client's list.</td>
+            </tr>
+            <tr>
+              <td>Server</td>
+              <td><span class="status status--must">MUST</span></td>
+              <td class="wide">Omit <code>client_certificate_type</code> when it isn't requesting a client certificate — or when nothing in the client's list is acceptable.</td>
+            </tr>
+            <tr>
+              <td>Server</td>
+              <td><span class="status status--must">MUST</span></td>
+              <td class="wide">Put the <code>SubjectPublicKeyInfo</code> in the Certificate payload if it answers <code>RawPublicKey</code> — and carry exactly one value in <code>server_certificate_type</code>.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <p class="sec-intro" style="margin-top:32px">
+      On receiving a hello with either extension, a server lands in exactly one of three states:
+    </p>
+
+    <div class="card-grid animate" style="--i:3">
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--secondary">Outcome 1</div>
+        <h3>Doesn't know the extension</h3>
+        <p>
+          Replies with a normal ServerHello, extensions absent. Standard TLS extension behaviour — the client sees
+          no answer and falls back to <strong>X.509 as the default</strong>, or gives up on its own terms.
+        </p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--destructive">Outcome 2</div>
+        <h3>Knows it, no overlap</h3>
+        <p>
+          Terminates with a <strong>fatal <code>unsupported_certificate</code> alert</strong>. There is no
+          negotiation round two, and no silent downgrade to a type neither side asked for.
+        </p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--success">Outcome 3</div>
+        <h3>Knows it, has overlap</h3>
+        <p>
+          Selects one type per direction and echoes each as a <strong>single value</strong>. The rules in the table
+          above apply from here on.
+        </p>
+      </div>
+    </div>
+
+    <!-- ============ 5 ============ -->
+    <div class="sec-head" id="s5">
+      <span class="sec-head__num">05</span>
+      <span class="sec-head__title">Three handshakes, verbatim</span>
+    </div>
+
+    <p class="sec-intro">
+      The RFC's own examples, which are worth reading side by side — they cover the three deployments people
+      actually build. Numbers in comments are the RFC's annotation markers.
+    </p>
+
+    <div class="code-file animate" style="--i:0">
+      <div class="code-file__header"><span>Figure 6 &mdash; 5.1 &nbsp;server presents a raw key, client is anonymous</span></div>
+      <pre class="code-file__body code-file__body--wide"><code>client_hello,
+<span class="hi">server_certificate_type=(RawPublicKey)</span> <span class="cm">// (1)</span>
+                       -&gt;
+                       &lt;- server_hello,
+                          <span class="hi">server_certificate_type=RawPublicKey</span>, <span class="cm">// (2)</span>
+                          certificate, <span class="cm">// (3) &larr; a SubjectPublicKeyInfo</span>
+                          server_key_exchange,
+                          server_hello_done
+
+client_key_exchange,
+change_cipher_spec,
+finished               -&gt;
+
+                       &lt;- change_cipher_spec,
+                          finished
+
+Application Data       &lt;-------&gt; Application Data</code></pre>
+    </div>
+
+    <div class="callout animate" style="--i:1">
+      <div class="callout__title">Read the omissions</div>
+      No <code>client_certificate_type</code> anywhere. The client has <strong>no TLS-layer credential to offer</strong>,
+      so per the rules in §4 it must leave the extension out entirely — and the server never sends a
+      <code>certificate_request</code>. This is the DANE-style web case: the client validates the server's key
+      against a DNSSEC-secured TLSA record and identifies itself, if at all, at the application layer.
+    </div>
+
+    <div class="code-file animate" style="--i:2">
+      <div class="code-file__header"><span>Figure 7 &mdash; 5.2 &nbsp;both sides raw &middot; the smart-object case</span></div>
+      <pre class="code-file__body code-file__body--wide"><code>client_hello,
+<span class="hi">client_certificate_type=(RawPublicKey)</span> <span class="cm">// (1)</span>
+<span class="hi">server_certificate_type=(RawPublicKey)</span> <span class="cm">// (1)</span>
+                       -&gt;
+                       &lt;-  server_hello,
+                           <span class="hi">server_certificate_type=RawPublicKey</span> <span class="cm">// (2)</span>
+                           certificate, <span class="cm">// (3)</span>
+                           <span class="hi">client_certificate_type=RawPublicKey</span> <span class="cm">// (5)</span>
+                           certificate_request, <span class="cm">// (4)</span>
+                           server_key_exchange,
+                           server_hello_done
+
+certificate, <span class="cm">// (6) &larr; the device's pre-provisioned key</span>
+client_key_exchange,
+change_cipher_spec,
+finished               -&gt;
+
+                       &lt;- change_cipher_spec,
+                          finished
+
+Application Data       &lt;-------&gt; Application Data</code></pre>
+    </div>
+
+    <div class="code-file animate" style="--i:3">
+      <div class="code-file__header"><span>Figure 8 &mdash; 5.3 &nbsp;hybrid: X.509 server, raw-key client</span></div>
+      <pre class="code-file__body code-file__body--wide"><code>client_hello,
+<span class="hi">server_certificate_type=(RawPublicKey, X.509, OpenPGP)</span>  <span class="cm">// preference order</span>
+<span class="hi">client_certificate_type=(RawPublicKey)</span> <span class="cm">// (1)</span>
+                       -&gt;
+                       &lt;-  server_hello,
+                           <span class="hi">server_certificate_type=X.509</span> <span class="cm">// (2) server overrides preference</span>
+                           certificate, <span class="cm">// (3) &larr; a real cert chain</span>
+                           <span class="hi">client_certificate_type=RawPublicKey</span> <span class="cm">// (4)</span>
+                           certificate_request, <span class="cm">// (5)</span>
+                           server_key_exchange,
+                           server_hello_done
+certificate, <span class="cm">// (6) &larr; a SubjectPublicKeyInfo</span>
+client_key_exchange,
+change_cipher_spec,
+finished               -&gt;
+
+                       &lt;- change_cipher_spec,
+                          finished
+
+Application Data       &lt;-------&gt; Application Data</code></pre>
+    </div>
+
+    <div class="callout callout--accent animate" style="--i:4">
+      <div class="callout__title">The client's preference is a preference, not a demand</div>
+      In Figure 8 the client lists <code>RawPublicKey</code> first and still gets X.509. The list is ordered by
+      client preference, but <strong>the server chooses</strong> — it can only offer what it actually has. Meanwhile the
+      other direction went the client's way. That asymmetry is the entire point of having two extensions:
+      <strong>a public server with a real certificate can still authenticate devices by bare key</strong>.
+    </div>
+
+    <!-- ============ 6 ============ -->
+    <div class="sec-head" id="s6">
+      <span class="sec-head__num">06</span>
+      <span class="sec-head__title">Where the trust actually comes from</span>
+    </div>
+
+    <p class="sec-intro">
+      This is the sentence to remember from the whole document, and it appears in the abstract, the introduction,
+      and twice more in §4:
+    </p>
+
+    <div class="ve-card ve-card--hero animate" style="--i:0">
+      <p style="font-size:17px; line-height:1.55; color:var(--foreground)">
+        "The mechanism defined herein <strong>only provides authentication when an out-of-band mechanism is also
+        used</strong> to bind the public key to the entity presenting the key."
+      </p>
+      <p style="margin-top:12px; font-family:var(--font-mono); font-size:11px">RFC 7250, §1</p>
+    </div>
+
+    <p class="sec-intro" style="margin-top:28px">
+      TLS still proves possession of the private key — that part is ordinary and unchanged. What is missing is
+      any claim about <em>whose</em> key it is. §4.3 and §4.4 say it directly, once for each direction:
+      authentication "is supported only through authentication of the received SubjectPublicKeyInfo via an
+      out-of-band method". Three such methods are named:
+    </p>
+
+    <div class="card-grid animate" style="--i:1">
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--secondary">Public internet</div>
+        <h3>DANE</h3>
+        <p>
+          The key — or its hash — is published in a <strong>DNSSEC-signed TLSA record</strong> at the name you
+          are connecting to. The DNS name is the identifier, and DNSSEC is the binding.
+          (<a href="https://www.rfc-editor.org/rfc/rfc6698">RFC 6698</a>)
+        </p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--accent">Constrained devices</div>
+        <h3>Pre-configuration</h3>
+        <p>
+          The key is written into firmware at manufacture and updated through the software update channel.
+          The RFC is explicit that this is <strong>not suitable for generic web e-commerce</strong>, but is
+          reasonable where the device software and the server endpoint are managed together.
+        </p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label">Someone else's problem</div>
+        <h3>Application layer</h3>
+        <p>
+          A protocol built on top can define its own binding — but then <strong>that specification must say how</strong>.
+          RFC 7250 requires it: specs using this extension "need to specify how the identifier and public key are bound".
+        </p>
+      </div>
+    </div>
+
+    <div class="callout callout--warning animate" style="--i:2">
+      <div class="callout__title">Binding is not a one-time step</div>
+      Beyond establishing the binding out-of-band, an implementation "also needs to <strong>check the status of that
+      binding</strong>". Raw public keys have no CRL and no OCSP — whatever revocation story you have lives entirely
+      in the out-of-band channel. If that channel is a DNS lookup you cache for a week, that is your revocation window.
+    </div>
+
+    <!-- ============ 7 ============ -->
+    <div class="sec-head" id="s7">
+      <span class="sec-head__num">07</span>
+      <span class="sec-head__title">Security: what breaks, and what doesn't</span>
+    </div>
+
+    <div class="card-grid card-grid--2 animate" style="--i:0">
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--destructive">The real risk</div>
+        <h3>No binding &rarr; machine-in-the-middle</h3>
+        <p>
+          "Without a secure binding between identifier and key, the protocol will be <strong>vulnerable to
+          man-in-the-middle attacks</strong>." An attacker who substitutes their own key completes a perfectly valid
+          handshake. Nothing in TLS catches it, because nothing in TLS was asked to.
+        </p>
+        <p>
+          The mitigation is not in this document. It is in whatever mechanism you chose in §6 — and the RFC
+          insists an assessment of that choice happens <strong>before deployment</strong>, not after.
+        </p>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label ve-card__label--success">The non-risk</div>
+        <h3>Downgrading the certificate type</h3>
+        <p>
+          Could an attacker rewrite the hellos to force a weaker type? They can try, but they cannot finish.
+          The extensions ride in the hello messages, and <strong>hello messages are covered by the handshake
+          hash</strong>.
+        </p>
+        <p>
+          Client and server would compute different transcript hashes and <strong>reject each other's
+          <code>Finished</code></strong>. Repairing them requires the <code>master_secret</code>, which the attacker
+          does not have. The tampering is detected, not merely discouraged.
+        </p>
+      </div>
+    </div>
+
+    <div class="callout callout--success animate" style="--i:1">
+      <div class="callout__title">What you gain, per the RFC</div>
+      Lower over-the-air overhead, since a raw key is naturally smaller than a certificate; a smaller code
+      footprint for parsing and processing; and <strong>no change at all</strong> to the cryptographic proof of
+      private-key possession, which follows the standard procedures. The trade is narrow and explicit: you give up
+      in-band identity, and you must replace it yourself.
+    </div>
+
+    <!-- ============ 8 ============ -->
+    <div class="sec-head" id="s8">
+      <span class="sec-head__num">08</span>
+      <span class="sec-head__title">On the wire: 162 bytes, decoded</span>
+    </div>
+
+    <p class="sec-intro">
+      Appendix A gives a complete example — an RSA-1024 public key as it appears inside the Certificate payload.
+      This is the whole credential. There is nothing else in the message.
+    </p>
+
+    <div class="code-file animate" style="--i:0">
+      <div class="code-file__header"><span>Figure 9 &mdash; example SubjectPublicKeyInfo byte sequence</span></div>
+      <pre class="code-file__body code-file__body--wide"><code><span class="cm">     0     1     2     3     4     5     6     7     8     9</span>
+ <span class="cm">+------+-----+-----+-----+-----+-----+-----+-----+-----+-----</span>
+<span class="cm">1  |</span> <span class="hi">0x30, 0x81, 0x9f,</span> 0x30, 0x0d, 0x06, 0x09, 0x2a, 0x86, 0x48,
+<span class="cm">2  |</span> 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01, 0x05, 0x00, 0x03, 0x81,
+<span class="cm">3  |</span> 0x8d, 0x00, 0x30, 0x81, 0x89, 0x02, 0x81, 0x81, 0x00, 0xcd,
+<span class="cm">4  |</span> 0xfd, 0x89, 0x48, 0xbe, 0x36, 0xb9, 0x95, 0x76, 0xd4, 0x13,
+<span class="cm">5  |</span> 0x30, 0x0e, 0xbf, 0xb2, 0xed, 0x67, 0x0a, 0xc0, 0x16, 0x3f,
+<span class="cm">6  |</span> 0x51, 0x09, 0x9d, 0x29, 0x2f, 0xb2, 0x6d, 0x3f, 0x3e, 0x6c,
+<span class="cm">7  |</span> 0x2f, 0x90, 0x80, 0xa1, 0x71, 0xdf, 0xbe, 0x38, 0xc5, 0xcb,
+<span class="cm">8  |</span> 0xa9, 0x9a, 0x40, 0x14, 0x90, 0x0a, 0xf9, 0xb7, 0x07, 0x0b,
+<span class="cm">9  |</span> 0xe1, 0xda, 0xe7, 0x09, 0xbf, 0x0d, 0x57, 0x41, 0x86, 0x60,
+<span class="cm">10 |</span> 0xa1, 0xc1, 0x27, 0x91, 0x5b, 0x0a, 0x98, 0x46, 0x1b, 0xf6,
+<span class="cm">11 |</span> 0xa2, 0x84, 0xf8, 0x65, 0xc7, 0xce, 0x2d, 0x96, 0x17, 0xaa,
+<span class="cm">12 |</span> 0x91, 0xf8, 0x61, 0x04, 0x50, 0x70, 0xeb, 0xb4, 0x43, 0xb7,
+<span class="cm">13 |</span> 0xdc, 0x9a, 0xcc, 0x31, 0x01, 0x14, 0xd4, 0xcd, 0xcc, 0xc2,
+<span class="cm">14 |</span> 0x37, 0x6d, 0x69, 0x82, 0xd6, 0xc6, 0xc4, 0xbe, 0xf2, 0x34,
+<span class="cm">15 |</span> 0xa5, 0xc9, 0xa6, 0x19, 0x53, 0x32, 0x7a, 0x86, 0x0e, 0x91,
+<span class="cm">16 |</span> 0x82, 0x0f, 0xa1, 0x42, 0x54, 0xaa, 0x01, <span class="hi">0x02, 0x03, 0x01,</span>
+<span class="cm">17 |</span> <span class="hi">0x00, 0x01</span>   <span class="cm">&larr; INTEGER 65537, the public exponent</span></code></pre>
+    </div>
+
+    <div class="card-grid card-grid--2 animate" style="--i:1; margin-top:16px">
+      <div class="code-file">
+        <div class="code-file__header"><span>Figure 10 &mdash; decoded</span></div>
+        <pre class="code-file__body code-file__body--wide"><code><span class="cm">Offset  Length   Description</span>
+<span class="cm">----------------------------------------------</span>
+   <span class="num">0</span>    <span class="num">3+159</span>:  <span class="kw">SEQUENCE</span> {
+   <span class="num">3</span>     <span class="num">2+13</span>:    <span class="kw">SEQUENCE</span> {
+   <span class="num">5</span>      <span class="num">2+9</span>:     <span class="kw">OBJECT IDENTIFIER</span>
+            :       (1 2 840 113549 1 1 1)
+            :       PKCS #1, rsaEncryption
+  <span class="num">16</span>      <span class="num">2+0</span>:     <span class="kw">NULL</span>
+            :     }
+  <span class="num">18</span>    <span class="num">3+141</span>:   <span class="kw">BIT STRING</span>, encapsulates {
+  <span class="num">22</span>    <span class="num">3+137</span>:     <span class="kw">SEQUENCE</span> {
+  <span class="num">25</span>    <span class="num">3+129</span>:       <span class="kw">INTEGER</span> (1024 bit)  <span class="cm">// modulus</span>
+ <span class="num">157</span>      <span class="num">2+3</span>:       <span class="kw">INTEGER</span> (65537)     <span class="cm">// exponent</span>
+            :       }
+            :     }
+            :   }</code></pre>
+      </div>
+      <div class="ve-card">
+        <div class="ve-card__label">Reading the first three bytes</div>
+        <p>
+          <code>0x30</code> is the DER tag for <code>SEQUENCE</code>. <code>0x81</code> says "the length needs one
+          more byte", and <code>0x9f</code> is that length: <strong>159 content bytes</strong>. Add the three bytes
+          of tag and length and the entire credential is <strong>162 bytes</strong>.
+        </p>
+        <p>
+          Everything inside is the algorithm identifier (the RSA OID plus a <code>NULL</code> parameter) and the key
+          itself (modulus and exponent). <strong>No subject, no issuer, no validity dates, no signature</strong> —
+          which is exactly the 600-plus bytes an X.509 wrapper would have added.
+        </p>
+      </div>
+    </div>
+
+    <!-- ============ 9 ============ -->
+    <div class="sec-head" id="s9">
+      <span class="sec-head__num">09</span>
+      <span class="sec-head__title">Registry, and life after TLS 1.2</span>
+    </div>
+
+    <p class="sec-intro">
+      RFC 7250 was written against TLS 1.2 (RFC 5246), but its two extensions survived into TLS 1.3 unchanged in
+      meaning — which is why raw public keys are still a live option today rather than a 2014 curiosity.
+    </p>
+
+    <div class="table-wrap animate" style="--i:0">
+      <div class="table-scroll">
+        <table class="data-table">
+          <thead>
+            <tr><th>Registry</th><th>Name</th><th>Value</th><th class="wide">Note</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>TLS Certificate Types</td><td><code>X.509</code></td><td><code>0</code></td>
+              <td class="wide">The default. Assumed when neither extension is negotiated.</td>
+            </tr>
+            <tr>
+              <td>TLS Certificate Types</td><td><code>OpenPGP</code></td><td><code>1</code></td>
+              <td class="wide">From RFC 6091. Appears in Figure 8's example list; no longer in meaningful use.</td>
+            </tr>
+            <tr>
+              <td>TLS Certificate Types</td><td><code>Raw Public Key</code></td><td><span class="status status--info">2</span></td>
+              <td class="wide">Registered by <strong>this document</strong>. The one new code point.</td>
+            </tr>
+            <tr>
+              <td>TLS ExtensionType</td><td><code>client_certificate_type</code></td><td><code>19</code></td>
+              <td class="wide">Valid in both ClientHello and ServerHello. Value assigned by IANA, not stated in the RFC prose.</td>
+            </tr>
+            <tr>
+              <td>TLS ExtensionType</td><td><code>server_certificate_type</code></td><td><code>20</code></td>
+              <td class="wide">Same. Both carry values drawn from the Certificate Types subregistry above.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="callout animate" style="--i:1" >
+      <div class="callout__title">In TLS 1.3</div>
+      <a href="https://www.rfc-editor.org/rfc/rfc8446">RFC 8446</a> keeps both extensions and points at RFC 7250 for
+      their semantics, with one structural adjustment: TLS 1.3 has no <code>select</code> in its
+      <code>Certificate</code> message, so when <code>RawPublicKey</code> is negotiated the
+      <code>certificate_list</code> must contain <strong>exactly one <code>CertificateEntry</code>, holding the
+      <code>ASN1_subjectPublicKeyInfo</code></strong>. Same bytes, one more layer of framing. The extensions also
+      move from the hellos into the encrypted portion of the handshake, which is a privacy improvement RFC 7250
+      never had.
+      <br><br>
+      The constrained-device goal aged well too:
+      <a href="https://www.rfc-editor.org/rfc/rfc7925">RFC 7925</a>, the IETF's TLS/DTLS profile for the Internet
+      of Things, builds directly on this mechanism — the smart-object case from §1 is not hypothetical.
+    </div>
+
+    <details class="collapsible animate" style="--i:2; margin-top:22px">
+      <summary>What RFC 7250 deliberately does not do</summary>
+      <div class="collapsible__body">
+        <p>
+          <strong>It does not define how to get the key.</strong> DANE, LDAP, and firmware provisioning are listed as
+          examples in the introduction and nowhere become normative. The document is a transport for a key you
+          already trust by other means.
+        </p>
+        <p>
+          <strong>It does not shrink the key further.</strong> Hash-based key identification was in early drafts and
+          was moved out after IETF 82 into what became the TLS Cached Info extension. RFC 7250 always sends the
+          full DER structure.
+        </p>
+        <p>
+          <strong>It does not touch anything but the two hellos.</strong> "It does not extend or modify any other TLS
+          message." No new cipher suites are needed; forward-secret Diffie-Hellman suites work with raw keys exactly
+          as they do with certificates, which the RFC notes without diagramming.
+        </p>
+      </div>
+    </details>
+
+    <footer class="page-foot">
+      <span>RFC 7250 &middot; Standards Track &middot; June 2014</span>
+      <span>Wouters &middot; Tschofenig &middot; Gilmore &middot; Weiler &middot; Kivinen</span>
+      <span>Copyright (c) 2014 IETF Trust</span>
+    </footer>
+
+  </div><!-- /main -->
+</div><!-- /wrap -->
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+  const config = {
+    fitPadding: 28, minHeight: 360, maxHeightPx: 1000,
+    maxHeightVh: 0.86, maxInitialZoom: 1.8, minZoom: 0.08,
+    maxZoom: 6.5, zoomStep: 0.14, readabilityFloor: 0.58
+  };
+
+  const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+  let activeDrag = null;
+
+  addEventListener('mousemove', (e) => activeDrag?.onMove(e));
+  addEventListener('mouseup', () => { activeDrag?.onEnd(); activeDrag = null; });
+
+  const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'base',
+    look: 'classic',
+    themeVariables: {
+      fontFamily: "'Inter', system-ui, sans-serif",
+      fontSize: '15px',
+      primaryColor:        isDark ? '#332a52' : '#ede9fe',
+      primaryBorderColor:  isDark ? '#a78bfa' : '#6d28d9',
+      primaryTextColor:    isDark ? '#e6e2f5' : '#2e1065',
+      secondaryColor:      isDark ? '#123c3c' : '#d8f3f0',
+      secondaryBorderColor:isDark ? '#5eead4' : '#0f766e',
+      secondaryTextColor:  isDark ? '#e6e2f5' : '#0f2e2c',
+      tertiaryColor:       isDark ? '#3a2b16' : '#fef3e2',
+      tertiaryBorderColor: isDark ? '#fbbf24' : '#d97706',
+      tertiaryTextColor:   isDark ? '#f3e8d5' : '#451a03',
+      lineColor:           isDark ? '#9aa2b8' : '#5b6478',
+      textColor:           isDark ? '#e2e5ee' : '#221f2e',
+      mainBkg:             isDark ? '#332a52' : '#ede9fe',
+      noteBkgColor:        isDark ? '#3a2b16' : '#fffbeb',
+      noteTextColor:       isDark ? '#f3e8d5' : '#451a03',
+      noteBorderColor:     isDark ? '#fbbf24' : '#d97706',
+      actorBkg:            isDark ? '#332a52' : '#ede9fe',
+      actorBorder:         isDark ? '#a78bfa' : '#6d28d9',
+      actorTextColor:      isDark ? '#e6e2f5' : '#2e1065',
+      signalColor:         isDark ? '#9aa2b8' : '#5b6478',
+      signalTextColor:     isDark ? '#e2e5ee' : '#221f2e',
+      sequenceNumberColor: isDark ? '#1a1626' : '#ffffff'
+    }
+  });
+
+  function initDiagram(shell) {
+    const wrap = shell.querySelector('.mermaid-wrap');
+    const viewport = shell.querySelector('.mermaid-viewport');
+    const canvas = shell.querySelector('.mermaid-canvas');
+    const source = shell.querySelector('.diagram-source');
+    const label = shell.querySelector('.zoom-label');
+
+    if (!wrap || !viewport || !canvas || !source || !label) {
+      console.error('initDiagram: missing required elements in', shell);
+      return;
+    }
+
+    let zoom = 1, fitMode = 'contain', panX = 0, panY = 0, svgW = 0, svgH = 0;
+    let sx = 0, sy = 0, spx = 0, spy = 0;
+    let touchDist = 0, touchCx = 0, touchCy = 0;
+
+    function constrainPan() {
+      const vpW = viewport.clientWidth, vpH = viewport.clientHeight;
+      const rW = svgW * zoom, rH = svgH * zoom, pad = config.fitPadding;
+      panX = (rW + pad * 2 <= vpW) ? (vpW - rW) / 2 : clamp(panX, vpW - rW - pad, pad);
+      panY = (rH + pad * 2 <= vpH) ? (vpH - rH) / 2 : clamp(panY, vpH - rH - pad, pad);
+    }
+
+    function applyTransform() {
+      const svg = canvas.querySelector('svg');
+      if (!svg || !svgW) return;
+      constrainPan();
+      svg.style.width = (svgW * zoom) + 'px';
+      svg.style.height = (svgH * zoom) + 'px';
+      canvas.style.transform = `translate(${panX}px, ${panY}px)`;
+      label.textContent = Math.round(zoom * 100) + '% — ' + fitMode;
+    }
+
+    function canPan() {
+      const rW = svgW * zoom, rH = svgH * zoom;
+      return rW + config.fitPadding * 2 > viewport.clientWidth
+          || rH + config.fitPadding * 2 > viewport.clientHeight;
+    }
+
+    function computeSmartFit() {
+      const vpW = viewport.clientWidth, vpH = viewport.clientHeight;
+      const aW = Math.max(80, vpW - config.fitPadding * 2);
+      const aH = Math.max(80, vpH - config.fitPadding * 2);
+      const contain = Math.min(aW / svgW, aH / svgH);
+      let z = contain, mode = 'contain';
+      if (contain < config.readabilityFloor) {
+        const chartR = svgH / svgW, vpR = vpH / Math.max(vpW, 1);
+        if (chartR >= vpR) { z = aW / svgW; mode = 'width-priority'; }
+        else { z = aH / svgH; mode = 'height-priority'; }
+      }
+      return { zoom: clamp(z, config.minZoom, config.maxInitialZoom), mode };
+    }
+
+    function fitDiagram() {
+      if (!svgW) return;
+      const fit = computeSmartFit();
+      zoom = fit.zoom; fitMode = fit.mode;
+      panX = (viewport.clientWidth - svgW * zoom) / 2;
+      panY = (viewport.clientHeight - svgH * zoom) / 2;
+      applyTransform();
+    }
+
+    function setOneToOne() {
+      zoom = clamp(1, config.minZoom, config.maxZoom);
+      fitMode = '1:1';
+      panX = (viewport.clientWidth - svgW * zoom) / 2;
+      panY = (viewport.clientHeight - svgH * zoom) / 2;
+      applyTransform();
+    }
+
+    function zoomAround(factor, cx, cy) {
+      const next = clamp(zoom * factor, config.minZoom, config.maxZoom);
+      const ratio = next / zoom;
+      panX = cx - ratio * (cx - panX);
+      panY = cy - ratio * (cy - panY);
+      zoom = next; fitMode = 'custom';
+      applyTransform();
+    }
+
+    function readSvgNaturalSize(svg) {
+      let w = 0, h = 0;
+      if (svg.viewBox?.baseVal?.width > 0) { w = svg.viewBox.baseVal.width; h = svg.viewBox.baseVal.height; }
+      if (!w) { w = parseFloat(svg.getAttribute('width')) || 0; h = parseFloat(svg.getAttribute('height')) || 0; }
+      if (!w) { const b = svg.getBBox(); w = b.width; h = b.height; }
+      if (!w) { const r = svg.getBoundingClientRect(); w = r.width || 1000; h = r.height || 700; }
+      if (!svg.getAttribute('viewBox')) svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      return { w, h };
+    }
+
+    function setAdaptiveHeight() {
+      if (!svgW) return;
+      const usableW = Math.max(280, wrap.getBoundingClientRect().width - 2);
+      const idealH = (svgH / svgW) * usableW + config.fitPadding * 2;
+      const maxVp = Math.floor(innerHeight * config.maxHeightVh);
+      const hardMax = Math.min(config.maxHeightPx, Math.max(config.minHeight + 40, maxVp));
+      wrap.style.height = Math.round(clamp(idealH, config.minHeight, hardMax)) + 'px';
+    }
+
+    function openInNewTab() {
+      const svg = canvas.querySelector('svg');
+      if (!svg) return;
+      const clone = svg.cloneNode(true);
+      clone.style.width = ''; clone.style.height = '';
+      const bg = isDark ? '#1a1723' : '#f4f4f7';
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Diagram</title><style>
+      body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+      background:${bg};padding:40px;box-sizing:border-box}
+      svg{max-width:100%;max-height:90vh;height:auto}
+      </style></head><body>${clone.outerHTML}</body></html>`;
+      open(URL.createObjectURL(new Blob([html], { type: 'text/html' })), '_blank');
+    }
+
+    async function render() {
+      try {
+        const code = source.textContent.trim();
+        if (!code) { label.textContent = 'Error: Empty source'; return; }
+        const id = 'diagram-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+        const { svg } = await mermaid.render(id, code);
+        const parsed = new DOMParser().parseFromString(svg, 'text/html');
+        const parsedSvg = parsed.body.querySelector('svg');
+        if (!parsedSvg) { label.textContent = 'Error: No SVG'; return; }
+        canvas.replaceChildren(document.adoptNode(parsedSvg));
+
+        const svgNode = canvas.querySelector('svg');
+        if (!svgNode) { label.textContent = 'Error: No SVG'; return; }
+
+        const size = readSvgNaturalSize(svgNode);
+        svgW = size.w; svgH = size.h;
+        svgNode.removeAttribute('width');
+        svgNode.removeAttribute('height');
+        svgNode.style.maxWidth = 'none';
+        svgNode.style.display = 'block';
+
+        setAdaptiveHeight();
+        fitDiagram();
+      } catch (err) {
+        console.error('Mermaid render failed:', err);
+        label.textContent = 'Error: ' + (err.message || 'Render failed');
+      }
+    }
+
+    const actions = {
+      'zoom-in': () => zoomAround(1 + config.zoomStep, viewport.clientWidth / 2, viewport.clientHeight / 2),
+      'zoom-out': () => zoomAround(1 / (1 + config.zoomStep), viewport.clientWidth / 2, viewport.clientHeight / 2),
+      'zoom-fit': fitDiagram,
+      'zoom-one': setOneToOne,
+      'zoom-expand': openInNewTab
+    };
+    Object.entries(actions).forEach(([action, handler]) => {
+      wrap.querySelector(`[data-action="${action}"]`)?.addEventListener('click', handler);
+    });
+
+    viewport.addEventListener('dblclick', fitDiagram);
+
+    viewport.addEventListener('wheel', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const rect = viewport.getBoundingClientRect();
+        const factor = e.deltaY < 0 ? 1 + config.zoomStep : 1 / (1 + config.zoomStep);
+        zoomAround(factor, e.clientX - rect.left, e.clientY - rect.top);
+        return;
+      }
+      if (canPan()) {
+        e.preventDefault();
+        panX -= e.deltaX; panY -= e.deltaY;
+        applyTransform();
+      }
+    }, { passive: false });
+
+    viewport.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.zoom-controls') || !canPan()) return;
+      wrap.classList.add('is-panning');
+      sx = e.clientX; sy = e.clientY; spx = panX; spy = panY;
+      e.preventDefault();
+      activeDrag = {
+        onMove: (ev) => { panX = spx + (ev.clientX - sx); panY = spy + (ev.clientY - sy); applyTransform(); },
+        onEnd: () => wrap.classList.remove('is-panning')
+      };
+    });
+
+    viewport.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        sx = e.touches[0].clientX; sy = e.touches[0].clientY; spx = panX; spy = panY;
+      } else if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        touchDist = Math.sqrt(dx * dx + dy * dy);
+        const r = viewport.getBoundingClientRect();
+        touchCx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left;
+        touchCy = (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top;
+      }
+    }, { passive: true });
+
+    viewport.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 1 && canPan()) {
+        if (touchDist > 0) {
+          sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+          spx = panX; spy = panY; touchDist = 0;
+        }
+        e.preventDefault();
+        panX = spx + (e.touches[0].clientX - sx);
+        panY = spy + (e.touches[0].clientY - sy);
+        applyTransform();
+      } else if (e.touches.length === 2 && touchDist > 0) {
+        e.preventDefault();
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        zoomAround(d / touchDist, touchCx, touchCy);
+        touchDist = d;
+      }
+    }, { passive: false });
+
+    new ResizeObserver(() => { if (svgW) { setAdaptiveHeight(); fitDiagram(); } }).observe(wrap);
+
+    render();
+  }
+
+  document.querySelectorAll('.diagram-shell').forEach(initDiagram);
+</script>
+
+<script>
+(function() {
+  const toc = document.getElementById('toc');
+  if (!toc) return;
+  const links = toc.querySelectorAll('a');
+  const sections = [];
+
+  links.forEach(link => {
+    const id = link.getAttribute('href').slice(1);
+    const el = document.getElementById(id);
+    if (el) sections.push({ id, el, link });
+  });
+
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        links.forEach(l => l.classList.remove('active'));
+        const match = sections.find(s => s.el === entry.target);
+        if (match) {
+          match.link.classList.add('active');
+          if (window.innerWidth <= 1000) {
+            match.link.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          }
+        }
+      }
+    });
+  }, { rootMargin: '-10% 0px -80% 0px' });
+
+  sections.forEach(s => observer.observe(s.el));
+
+  links.forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      const id = link.getAttribute('href').slice(1);
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        history.replaceState(null, '', '#' + id);
+      }
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
