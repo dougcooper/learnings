@@ -21,6 +21,12 @@ Rendered pages: **https://dougcooper.github.io/learnings/**
 |---|---|---|
 | **QUIC** — RFC 9000: streams and flow control, the combined crypto/transport handshake, packets vs frames, connection IDs and migration, anti-amplification, stateless reset, wire encoding | [open](https://dougcooper.github.io/learnings/quic/rfc9000-quic.html) | [`quic/rfc9000-quic.html`](quic/rfc9000-quic.html) |
 
+## SSH
+
+| Topic | Read | Source |
+|---|---|---|
+| **SSH Transport** — RFC 4253: the three-layer SSH model, the plaintext version exchange, KEXINIT algorithm negotiation, Diffie-Hellman with host-key signing and TOFU, key derivation, the binary packet protocol and its never-reset sequence number, encryption/MAC/compression floors, re-keying, the service handoff to userauth | [open](https://dougcooper.github.io/learnings/ssh/rfc4253-ssh-transport.html) | [`ssh/rfc4253-ssh-transport.html`](ssh/rfc4253-ssh-transport.html) |
+
 ## Adding one
 
 Drop a self-contained `.html` file in a topic directory (`tls/`, or a new one)
