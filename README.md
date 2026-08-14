@@ -27,6 +27,12 @@ Rendered pages: **https://dougcooper.github.io/learnings/**
 |---|---|---|
 | **SSH Transport** — RFC 4253: the three-layer SSH model, the plaintext version exchange, KEXINIT algorithm negotiation, Diffie-Hellman with host-key signing and TOFU, key derivation, the binary packet protocol and its never-reset sequence number, encryption/MAC/compression floors, re-keying, the service handoff to userauth | [open](https://dougcooper.github.io/learnings/ssh/rfc4253-ssh-transport.html) | [`ssh/rfc4253-ssh-transport.html`](ssh/rfc4253-ssh-transport.html) |
 
+## Messaging
+
+| Topic | Read | Source |
+|---|---|---|
+| **Triple Ratchet** — Dodis, Jost, Katsumata, Prest, Schmidt (IACR 2025/078): Signal's Double Ratchet plus a post-quantum ratchet with erasure-coded chunks, the lattice RKEM Katana (hint-MLWE), the critical security flaw in prior lattice RKEM proofs, per-epoch bandwidth 1,416 B vs Kyber's 2,272 B | [open](https://dougcooper.github.io/learnings/messaging/triple-ratchet.html) | [`messaging/triple-ratchet.html`](messaging/triple-ratchet.html) |
+
 ## Adding one
 
 Drop a self-contained `.html` file in a topic directory (`tls/`, or a new one)

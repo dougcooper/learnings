@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Triple Ratchet — Bandwidth-Efficient Hybrid-Secure Signal Protocol</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --background: oklch(0.97 0.005 260);
+    --foreground: oklch(0.18 0.02 260);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.18 0.02 260);
+    --muted: oklch(0.92 0.01 260);
+    --muted-foreground: oklch(0.40 0.02 260);
+    --primary: oklch(0.50 0.25 280);
+    --primary-foreground: oklch(1 0 0);
+    --secondary: oklch(0.50 0.18 180);
+    --accent: oklch(0.60 0.22 50);
+    --accent-foreground: oklch(0.18 0.02 260);
+    --destructive: oklch(0.50 0.25 25);
+    --success: oklch(0.45 0.20 150);
+    --warning: oklch(0.55 0.18 85);
+    --border: oklch(0.88 0.01 260);
+    --code-bg: oklch(0.92 0.01 260);
+    --ring: oklch(0.50 0.25 280);
+    --radius: 0.625rem;
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+    --font-display: 'Instrument Serif', ui-serif, Georgia, 'Times New Roman', serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: oklch(0.15 0.02 260);
+      --foreground: oklch(0.90 0.01 260);
+      --card: oklch(0.22 0.02 260);
+      --card-foreground: oklch(0.90 0.01 260);
+      --muted: oklch(0.26 0.02 260);
+      --muted-foreground: oklch(0.72 0.02 260);
+      --primary: oklch(0.75 0.18 280);
+      --primary-foreground: oklch(0.15 0.02 260);
+      --accent: oklch(0.70 0.20 60);
+      --border: oklch(0.35 0.02 260);
+      --code-bg: oklch(0.26 0.02 260);
+      --destructive: oklch(0.65 0.20 25);
+      --success: oklch(0.72 0.17 150);
+      --warning: oklch(0.75 0.15 85);
+    }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    padding: 40px 24px 80px;
+  }
+
+  .container { max-width: 1100px; margin: 0 auto; }
+
+  /* ===== HEADER ===== */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--primary);
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: 48px;
+    font-weight: 400;
+    line-height: 1.05;
+    letter-spacing: -1px;
+    margin-bottom: 16px;
+    text-wrap: balance;
+  }
+
+  .meta {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    color: var(--muted-foreground);
+    font-size: 14px;
+    margin-bottom: 32px;
+    font-family: var(--font-mono);
+  }
+
+  .meta span { display: inline-flex; align-items: center; gap: 6px; }
+
+  .prompt-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--primary);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    color: var(--muted-foreground);
+    font-size: 14px;
+    margin-bottom: 48px;
+  }
+
+  .prompt-box strong { color: var(--foreground); }
+
+  /* ===== KPI STRIP ===== */
+  .kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-bottom: 56px;
+  }
+
+  .kpi-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+
+  .kpi-card .label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted-foreground);
+    margin-bottom: 6px;
+  }
+
+  .kpi-card .value {
+    font-family: var(--font-display);
+    font-size: 28px;
+    line-height: 1.1;
+    color: var(--foreground);
+  }
+
+  .kpi-card .unit {
+    font-size: 12px;
+    color: var(--muted-foreground);
+    margin-top: 4px;
+  }
+
+  .kpi-card--accent { border-color: var(--primary); background: color-mix(in oklab, var(--primary) 5%, var(--card)); }
+  .kpi-card--accent .value { color: var(--primary); }
+  .kpi-card--success { border-color: var(--success); background: color-mix(in oklab, var(--success) 5%, var(--card)); }
+  .kpi-card--success .value { color: var(--success); }
+  .kpi-card--warning { border-color: var(--warning); background: color-mix(in oklab, var(--warning) 5%, var(--card)); }
+  .kpi-card--warning .value { color: var(--warning); }
+
+  /* ===== SECTION ===== */
+  section { margin-bottom: 56px; }
+
+  h2 {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 400;
+    line-height: 1.15;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+  }
+
+  h3 {
+    font-family: var(--font-sans);
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+
+  .section-sub {
+    color: var(--muted-foreground);
+    font-size: 14px;
+    margin-bottom: 24px;
+    max-width: 720px;
+  }
+
+  /* ===== VE CARDS ===== */
+  .ve-card {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+  }
+
+  .ve-card--hero {
+    background: color-mix(in oklab, var(--primary) 5%, var(--card));
+    border-color: var(--primary);
+    box-shadow: 0 4px 24px color-mix(in oklab, var(--primary) 10%, transparent);
+  }
+
+  .ve-card--recessed {
+    background: var(--muted);
+    border-color: transparent;
+  }
+
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--primary);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-label .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--primary);
+    display: inline-block;
+  }
+
+  /* ===== GRIDS ===== */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  .inner-card {
+    background: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+  }
+
+  .inner-card .title {
+    font-weight: 600;
+    font-size: 14px;
+    margin-bottom: 6px;
+  }
+
+  .inner-card .desc {
+    color: var(--muted-foreground);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  /* ===== TL;DR ===== */
+  .tldr {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--primary);
+    border-radius: var(--radius);
+    padding: 24px 28px;
+    font-size: 17px;
+    line-height: 1.65;
+    color: var(--foreground);
+  }
+
+  .tldr strong { color: var(--primary); }
+
+  /* ===== COMPARISON TABLE ===== */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card);
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    font-size: 14px;
+  }
+
+  thead {
+    background: var(--muted);
+  }
+
+  th {
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted-foreground);
+    padding: 12px 16px;
+  }
+
+  td {
+    padding: 14px 16px;
+    border-top: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  td code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: var(--code-bg);
+    color: var(--foreground);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  .table-wrap { overflow-x: auto; }
+
+  /* ===== PIPELINE (vertical) ===== */
+  .pipeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 8px 0;
+  }
+
+  .pipeline-step {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+    width: 100%;
+  }
+
+  .pipeline-step .step-num {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .pipeline-step .step-name {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .pipeline-step .step-detail {
+    font-size: 13px;
+    color: var(--muted-foreground);
+    line-height: 1.5;
+  }
+
+  .pipeline-step--pq { border-color: var(--primary); background: color-mix(in oklab, var(--primary) 4%, var(--card)); }
+  .pipeline-step--pq .step-num { color: var(--primary); }
+
+  .pipeline-step--dh { border-color: var(--secondary); background: color-mix(in oklab, var(--secondary) 4%, var(--card)); }
+  .pipeline-step--dh .step-num { color: var(--secondary); }
+
+  .pipeline-step--sym { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 4%, var(--card)); }
+  .pipeline-step--sym .step-num { color: var(--accent); }
+
+  .pipeline-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted-foreground);
+    font-size: 18px;
+    height: 28px;
+  }
+
+  /* ===== CODE BLOCK ===== */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--foreground);
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .code-block .kw  { color: var(--primary); font-weight: 600; }
+  .code-block .fn  { color: var(--accent); }
+  .code-block .str { color: var(--success); }
+  .code-block .cm  { color: var(--muted-foreground); font-style: italic; }
+  .code-block .num { color: var(--warning); }
+
+  /* ===== CALLOUT ===== */
+  .callout {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--destructive);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 16px 20px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--foreground);
+  }
+
+  .callout--info { border-left-color: var(--primary); }
+  .callout--warn { border-left-color: var(--warning); }
+  .callout--success { border-left-color: var(--success); }
+
+  .callout strong { font-weight: 600; }
+  .callout code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: var(--code-bg);
+    color: var(--foreground);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  /* ===== LEGEND ===== */
+  .legend {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--muted-foreground);
+    font-family: var(--font-mono);
+  }
+
+  .legend-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    border: 1.5px solid;
+  }
+
+  /* ===== BAR CHART (custom) ===== */
+  .bar-row {
+    display: grid;
+    grid-template-columns: 180px 1fr 80px;
+    gap: 12px;
+    align-items: center;
+    padding: 8px 0;
+    font-size: 13px;
+  }
+
+  .bar-row .label {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--foreground);
+  }
+
+  .bar-row .bar-track {
+    background: var(--muted);
+    border-radius: 4px;
+    height: 24px;
+    overflow: hidden;
+  }
+
+  .bar-row .bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.6s ease;
+  }
+
+  .bar-row .value {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted-foreground);
+    text-align: right;
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 900px) {
+    .kpi-strip { grid-template-columns: repeat(2, 1fr); }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .pipeline-step .step-detail { font-size: 12px; }
+    h1 { font-size: 36px; }
+    .bar-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <!-- ============ HEADER ============ -->
+  <div class="eyebrow">CRYPTOGRAPHY · IACR EPRINT 2025/078 · MARCH 2025</div>
+  <h1>The Triple Ratchet:<br>A Bandwidth-Efficient Hybrid-Secure Signal Protocol</h1>
+  <div class="meta">
+    <span>👥 Dodis, Jost, Katsumata, Prest, Schmidt</span>
+    <span>🏛 NYU · PQShield · AIST · Signal Messenger</span>
+    <span>� IACR 2025/078</span>
+  </div>
+
+  <div class="prompt-box">
+    <strong>The brief.</strong> Signal's Double Ratchet is great, but it is purely classical — vulnerable to a future quantum adversary doing "Harvest Now, Decrypt Later." Apple's PQ3 adds a post-quantum layer on top of Kyber, but only amortizes it every ~50 messages. When conversations are unbalanced (which is the real world), PQ3 sends the same big Kyber blob over and over. This paper fixes both problems: better amortization <em>and</em> a smaller lattice KEM called Katana.
+  </div>
+
+  <!-- ============ KPI STRIP ============ -->
+  <div class="kpi-strip">
+    <div class="kpi-card kpi-card--accent">
+      <div class="label">PQ3 per epoch</div>
+      <div class="value">2,272</div>
+      <div class="unit">bytes (pk + ct)</div>
+    </div>
+    <div class="kpi-card kpi-card--success">
+      <div class="label">Katana per epoch</div>
+      <div class="value">1,416</div>
+      <div class="unit">bytes (pk + ct)</div>
+    </div>
+    <div class="kpi-card kpi-card--warning">
+      <div class="label">Savings</div>
+      <div class="value">−37%</div>
+      <div class="unit">bandwidth vs Kyber-768</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">Security level</div>
+      <div class="value">λ=192</div>
+      <div class="unit">post-quantum bits</div>
+    </div>
+    <div class="kpi-card">
+      <div class="label">Off-line scenario</div>
+      <div class="value">4.9×</div>
+      <div class="unit">cheaper than PQ3 (p=0.9)</div>
+    </div>
+  </div>
+
+  <!-- ============ TL;DR ============ -->
+  <section>
+    <div class="tldr">
+      The paper introduces the <strong>Triple Ratchet</strong> (TR): a hybrid-secure messaging protocol that pairs Signal's classical Double Ratchet with a <strong>post-quantum ratchet</strong> that uses <strong>erasure codes</strong> to amortize large ciphertexts chunk-by-chunk. The post-quantum ratchet is built from a new lattice-based ratcheting KEM called <strong>Katana</strong>, which halves Kyber's per-epoch bandwidth while fixing a <strong>critical security flaw</strong> in prior lattice-based ratchet proofs using the <strong>hint-MLWE</strong> assumption.
+    </div>
+  </section>
+
+  <!-- ============ MOTIVATION ============ -->
+  <section>
+    <h2>Why a Triple Ratchet?</h2>
+    <p class="section-sub">Signal/WhatsApp/Messages are all built on the Double Ratchet. The Double Ratchet is only secure under classical DH assumptions — Shor's algorithm breaks it. Today's transcripts can be stored and decrypted later.</p>
+
+    <div class="grid-2">
+      <div class="ve-card">
+        <div class="section-label"><span class="dot"></span> Existing defenses</div>
+        <h3>PQXDH & PQ3</h3>
+        <p style="font-size:14px;color:var(--muted-foreground);margin-top:8px;">
+          <strong>PQXDH</strong> (2023) protects only the initial handshake. <strong>PQ3</strong> (Apple, 2024) protects the whole session by adding a Kyber-768 ratchet to the Double Ratchet.
+        </p>
+        <div class="callout callout--warn" style="margin-top:12px;">
+          <strong>The catch.</strong> Kyber-768 pk+ct is <code>2,272 bytes</code> per epoch — ~71× larger than a single DH group element. PQ3 amortizes this by re-sending only every ~50 messages, but in unbalanced conversations (typing indicators, offline laptops, linked devices) the amortization fails and the same 2,272-byte blob is repeated message after message.
+        </div>
+      </div>
+
+      <div class="ve-card">
+        <div class="section-label"><span class="dot"></span> The TR fix</div>
+        <h3>Two independent improvements</h3>
+        <p style="font-size:14px;color:var(--muted-foreground);margin-top:8px;">
+          <strong>1.</strong> Split the long PQ message with an <strong>erasure code</strong>: send one fresh chunk every message, decode after any 50 chunks. Cost is now balanced — no amortize-or-explode.
+        </p>
+        <p style="font-size:14px;color:var(--muted-foreground);margin-top:8px;">
+          <strong>2.</strong> Replace Kyber with <strong>Katana</strong>: a Kyber-style RKEM where Bob's "ciphertext" doubles as his "public key" (Signal-style reuse), saving a factor of 2 — but proven secure only via the new <strong>hint-MLWE</strong> assumption.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TRIPLE RATCHET ARCHITECTURE ============ -->
+  <section>
+    <h2>Triple Ratchet Architecture</h2>
+    <p class="section-sub">Three ratchets run in parallel, each producing a key stream. The message key is the XOR of the classical and post-quantum key streams. The two CKAs evolve at their own pace.</p>
+
+    <div class="ve-card ve-card--hero">
+      <div class="legend">
+        <div class="legend-item"><div class="legend-swatch" style="background:color-mix(in oklab, var(--primary) 30%, var(--card));border-color:var(--primary)"></div>Post-quantum (Katana)</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:color-mix(in oklab, var(--secondary) 30%, var(--card));border-color:var(--secondary)"></div>Classical (X25519 DH)</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:color-mix(in oklab, var(--accent) 30%, var(--card));border-color:var(--accent)"></div>Symmetric ratchet</div>
+      </div>
+      <div class="pipeline">
+        <div class="pipeline-step pipeline-step--pq">
+          <div class="step-num">RATCHET 1</div>
+          <div class="step-name">PQ Public Ratchet</div>
+          <div class="step-detail">Katana RKEM chunks sent message-by-message; classical + PQ roots stay independent</div>
+        </div>
+        <div class="pipeline-arrow">↓</div>
+        <div class="pipeline-step pipeline-step--dh">
+          <div class="step-num">RATCHET 2</div>
+          <div class="step-name">Classical Public Ratchet</div>
+          <div class="step-detail">Optimized DH (Signal-style): g<sup>b</sup> doubles as ciphertext + next public key</div>
+        </div>
+        <div class="pipeline-arrow">↓</div>
+        <div class="pipeline-step pipeline-step--sym">
+          <div class="step-num">RATCHET 3</div>
+          <div class="step-name">Symmetric Ratchet</div>
+          <div class="step-detail">Two symmetric ratchets feed one root key each; final message key XORs both streams</div>
+        </div>
+        <div class="pipeline-arrow">↓</div>
+        <div class="pipeline-step pipeline-step--sym">
+          <div class="step-num">OUTPUT</div>
+          <div class="step-name">Message Key</div>
+          <div class="step-detail">Encrypt application message; forward-secure &amp; post-quantum-PCS</div>
+        </div>
+      </div>
+
+      <div class="callout callout--info" style="margin-top:20px;">
+        <strong>Why two roots?</strong> In PQ3, the classical and post-quantum ratchets are synchronized and share one root key. With erasure-coded chunks, the PQ ratchet can "fall behind" the classical one — so TR keeps two separate roots and combines their message-key streams. The sender also tracks how many chunks the receiver has acknowledged before committing the updated PQ root to message-key derivation.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ERASURE CODE COMPARISON ============ -->
+  <section>
+    <h2>Chunk Encoding vs PQ3 Amortization</h2>
+    <p class="section-sub">Same worst-case PCS latency (50 epochs), but the bandwidth no longer depends on conversation balance. The chart shows expected bytes to achieve PQ-PCS at three imbalance levels (p = probability a sender keeps sending without receiving).</p>
+
+    <div class="ve-card">
+      <div class="legend">
+        <div class="legend-item"><div class="legend-swatch" style="background:color-mix(in oklab, var(--destructive) 40%, var(--card));border-color:var(--destructive)"></div>PQ3 (Kyber-768, amortized 1/50)</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:color-mix(in oklab, var(--secondary) 40%, var(--card));border-color:var(--secondary)"></div>TR + Kyber-768 (erasure-coded)</div>
+        <div class="legend-item"><div class="legend-swatch" style="background:color-mix(in oklab, var(--success) 40%, var(--card));border-color:var(--success)"></div>TR + Katana (erasure-coded)</div>
+      </div>
+
+      <!-- Balanced scenario: p = 0 -->
+      <div style="margin-top:16px;">
+        <div style="font-family:var(--font-mono);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--muted-foreground);margin-bottom:8px;">p = 0 · perfectly balanced (every send → receive)</div>
+        <div class="bar-row">
+          <div class="label">PQ3</div>
+          <div class="bar-track"><div class="bar-fill" style="width:93%;background:var(--destructive);"></div></div>
+          <div class="value">6,488 B</div>
+        </div>
+        <div class="bar-row">
+          <div class="label">TR + Kyber</div>
+          <div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--secondary);"></div></div>
+          <div class="value">9,000 B</div>
+        </div>
+        <div class="bar-row">
+          <div class="label">TR + Katana</div>
+          <div class="bar-track"><div class="bar-fill" style="width:72%;background:var(--success);"></div></div>
+          <div class="value">6,500 B</div>
+        </div>
+      </div>
+
+      <!-- p = 0.5 -->
+      <div style="margin-top:24px;">
+        <div style="font-family:var(--font-mono);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--muted-foreground);margin-bottom:8px;">p = 0.5 · typing indicators, online chat</div>
+        <div class="bar-row">
+          <div class="label">PQ3</div>
+          <div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--destructive);"></div></div>
+          <div class="value">11,176 B</div>
+        </div>
+        <div class="bar-row">
+          <div class="label">TR + Kyber</div>
+          <div class="bar-track"><div class="bar-fill" style="width:85%;background:var(--secondary);"></div></div>
+          <div class="value">9,540 B</div>
+        </div>
+        <div class="bar-row">
+          <div class="label">TR + Katana</div>
+          <div class="bar-track"><div class="bar-fill" style="width:62%;background:var(--success);"></div></div>
+          <div class="value">6,890 B</div>
+        </div>
+      </div>
+
+      <!-- p = 0.9 -->
+      <div style="margin-top:24px;">
+        <div style="font-family:var(--font-mono);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--muted-foreground);margin-bottom:8px;">p = 0.9 · device offline overnight, linked laptops</div>
+        <div class="bar-row">
+          <div class="label">PQ3</div>
+          <div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--destructive);"></div></div>
+          <div class="value">48,680 B</div>
+        </div>
+        <div class="bar-row">
+          <div class="label">TR + Kyber</div>
+          <div class="bar-track"><div class="bar-fill" style="width:28%;background:var(--secondary);"></div></div>
+          <div class="value">13,860 B</div>
+        </div>
+        <div class="bar-row">
+          <div class="label">TR + Katana</div>
+          <div class="bar-track"><div class="bar-fill" style="width:21%;background:var(--success);"></div></div>
+          <div class="value">10,010 B</div>
+        </div>
+      </div>
+
+      <div class="callout callout--success" style="margin-top:20px;">
+        <strong>Worst-case is bounded.</strong> TR with Katana stays under ~10 KB even when a peer is offline for hours. PQ3 explodes to ~49 KB — that's the same 2,272-byte Kyber blob being re-sent 20+ times.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ KATANA CONSTRUCTION ============ -->
+  <section>
+    <h2>Katana — Lattice RKEM</h2>
+    <p class="section-sub">A ratcheting KEM whose ciphertext doubles as the next public key — the lattice analogue of Signal's "send g<sup>b</sup> as ciphertext+next-pubkey" trick. Built on the LPR/LP KEM underlying ML-KEM (Kyber), but with one fewer element transmitted per epoch.</p>
+
+    <div class="grid-2">
+      <div class="ve-card">
+        <div class="section-label"><span class="dot"></span> The trick</div>
+        <h3>Reuse Bob's ciphertext as his next public key</h3>
+        <p style="font-size:14px;color:var(--muted-foreground);margin-top:8px;">
+          Classical DH: Alice has <code>g<sup>a</sup></code>, Bob sends <code>g<sup>b</sup></code>. Shared secret: <code>g<sup>ab</sup></code>. Bob's <code>g<sup>b</sup></code> is both the KEM ciphertext <em>and</em> Alice's next public key — one element does two jobs.
+        </p>
+        <p style="font-size:14px;color:var(--muted-foreground);margin-top:8px;">
+          Katana does the same with MLWE: Bob's <code>u<sub>B</sub> = D·s<sub>B</sub> + e<sub>B</sub></code> serves as both the encapsulation (decoded to a seed via rounding) <em>and</em> Alice's public key for the next round.
+        </p>
+      </div>
+
+      <div class="ve-card ve-card--recessed">
+        <div class="section-label"><span class="dot"></span> Sizes (λ = 192)</div>
+        <table style="background:transparent;border:none;">
+          <thead><tr><th></th><th>Kyber-768</th><th>Katana</th></tr></thead>
+          <tbody>
+            <tr><td>pk</td><td><code>1,088 B</code></td><td><code>800 B</code></td></tr>
+            <tr><td>ct</td><td><code>1,184 B</code></td><td><code>616 B</code></td></tr>
+            <tr style="font-weight:600;"><td>pk + ct</td><td>2,272 B</td><td>1,416 B</td></tr>
+          </tbody>
+        </table>
+        <div class="callout callout--success" style="margin-top:12px;">
+          <strong>37% smaller.</strong> The combined size is what matters for ratchet bandwidth — exactly what TR chunks up and amortizes per message.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SECURITY FLAW ============ -->
+  <section>
+    <h2>The Security Flaw They Found</h2>
+    <p class="section-sub">Prior lattice-based RKEMs [ACD19, LKS23] claimed a DDH-style security proof for the "ciphertext = next public key" trick. The proof is subtly wrong — and the error is fundamental, not just a tunable parameter.</p>
+
+    <div class="ve-card">
+      <div class="callout">
+        <strong>The flaw (Item L.1).</strong> In the DH setting, the simulator can produce <code>g<sup>ab</sup></code> given only Alice's <code>g<sup>a</sup></code> and a random oracle. The lattice analogue fails: the "shared" component <code>v<sub>A</sub></code> algebraically contains an expression involving Bob's secret <code>s<sub>B</sub></code> that cannot be simulated from Alice's secret <code>s<sub>A</sub></code> alone. A compromised Alice's secret leaks a statistical bias on Bob's secret, which then biases the next round — a vicious cycle.
+      </div>
+
+      <div class="grid-2" style="margin-top:16px;">
+        <div class="inner-card">
+          <div class="title">Why it matters</div>
+          <div class="desc">The reduction needs to embed a DDH challenge into the protocol. If you can't simulate the "shared secret" part without the peer's secret, you can't embed anything — and PCS is not actually reduced to MLWE.</div>
+        </div>
+        <div class="inner-card">
+          <div class="title">Why prior work missed it</div>
+          <div class="desc">[ACD19, LKS23] each invoked an analogue of the DH Item (C.2) without checking that Item (C.1)/Item (L.1) holds. In DH the symmetry hides the issue; in lattices it doesn't.</div>
+        </div>
+      </div>
+
+      <div class="callout callout--success" style="margin-top:16px;">
+        <strong>The fix: hint-MLWE.</strong> Rather than noise-flooding (which makes parameters unusable), Katana proves Item (L.1) <em>computationally</em> using the <strong>hint-MLWE</strong> assumption [KLSS23, EEN'24]: MLWE stays hard even given some noisy linear leakage of the secret. With hint-MLWE in hand, Item (L.2) goes through and the full reduction to MLWE is restored.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ KATANA CORE CODE ============ -->
+  <section>
+    <h2>Katana — Core Algorithms</h2>
+    <p class="section-sub">Simplified (no bit-dropping). The full scheme has two modes — fresh key generation and "updated" key generation — and four algorithms total.</p>
+
+    <div class="code-block"><span class="cm">// Katana.REnc: party P̄ encapsulates to party P (held by sender)</span>
+<span class="kw">function</span> <span class="fn">REnc</span>(ek[P̄], dk[P]):
+  (uP, sP) ← dk[P]
+  seed ←$ <span class="str">{0,1}<sup>λ</sup></span>
+  m ← <span class="fn">Encode</span>(seed)                    <span class="cm">// m ∈ R<sub>q</sub></span>
+  (K, s, e) ← <span class="fn">H</span>(uP, seed)              <span class="cm">// random oracle</span>
+  ẽ ←$ <span class="str">χ̃</span>                               <span class="cm">// decryption noise</span>
+  v[P̄] ← ek[P̄]·sP + ẽ + m
+  ct[P̄] ← v[P̄]
+  <span class="kw">if</span> P = A:  ek<sup>p</sup>[B] ← ek[B] + D<sup>T</sup>·s + e   <span class="cm">// P̄'s next pubkey</span>
+  <span class="kw">else</span>:      ek<sup>p</sup>[A] ← ek[A] + D·s + e
+  <span class="kw">return</span> (ct[P̄], K, dk<sup>p</sup>[P])
+
+<span class="cm">// Katana.RDec: party P̄ decapsulates</span>
+<span class="kw">function</span> <span class="fn">RDec</span>(dk<sup>p</sup>[P], ct[P̄], ek[P̄]):
+  m ← ct[P̄] - ek[P̄]·dk<sup>p</sup>[P]
+  seed ← <span class="fn">Decode</span>(m)                     <span class="cm">// round to nearest multiple of ⌊q/2⌋</span>
+  (K, s, e) ← <span class="fn">H</span>(ek[P̄], seed)
+  <span class="kw">if</span> P = A:  ek<sup>p</sup>[B] ← ek[B] + D<sup>T</sup>·s + e
+  <span class="kw">else</span>:      ek<sup>p</sup>[A] ← ek[A] + D·s + e
+  <span class="kw">return</span> (K, ek<sup>p</sup>[P̄])</div>
+  </section>
+
+  <!-- ============ KEY COMPARISON TABLE ============ -->
+  <section>
+    <h2>Protocol Comparison</h2>
+    <p class="section-sub">How TR-Katana stacks up against the deployed status quo.</p>
+
+    <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Property</th>
+          <th>PQ3 (Apple iMessage, 2024)</th>
+          <th>Triple Ratchet + Katana</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Classical security</strong></td>
+          <td>X25519 DH ratchet</td>
+          <td>X25519 DH ratchet (same)</td>
+        </tr>
+        <tr>
+          <td><strong>PQ algorithm</strong></td>
+          <td>ML-KEM-768 (Kyber)</td>
+          <td>Katana (RKEM, hint-MLWE)</td>
+        </tr>
+        <tr>
+          <td><strong>PQ bytes / epoch</strong></td>
+          <td><code>2,272 B</code> (pk + ct)</td>
+          <td><code>1,416 B</code> (pk + ct)</td>
+        </tr>
+        <tr>
+          <td><strong>Amortization</strong></td>
+          <td>Send full blob every ~50 msgs (heuristic)</td>
+          <td>Erasure-coded chunks, every message</td>
+        </tr>
+        <tr>
+          <td><strong>Worst-case bandwidth</strong></td>
+          <td>Unbounded re-sends (offline peers)</td>
+          <td>Bounded: <code>~50 × chunk_size</code></td>
+        </tr>
+        <tr>
+          <td><strong>Root key</strong></td>
+          <td>Single (CKAs synced)</td>
+          <td>Two (CKAs decoupled)</td>
+        </tr>
+        <tr>
+          <td><strong>Off-line scenario (p=0.9)</strong></td>
+          <td>~49 KB to gain PCS</td>
+          <td>~10 KB to gain PCS</td>
+        </tr>
+        <tr>
+          <td><strong>Security analysis</strong></td>
+          <td>ML-KEM IND-CCA + DR proof [Ste24]</td>
+          <td>FS-IND-CPA + ratchet-simulatable RKEM, generic composition</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <!-- ============ OPEN QUESTIONS / PRODUCTION ============ -->
+  <section>
+    <h2>Open Questions & Production Outlook</h2>
+
+    <div class="grid-2">
+      <div class="ve-card">
+        <div class="section-label"><span class="dot"></span> Status</div>
+        <h3>Active Signal evaluation</h3>
+        <p style="font-size:14px;color:var(--muted-foreground);margin-top:8px;">
+          Authors are in discussion with the Signal team; Signal is actively evaluating a variant of TR for a future protocol iteration. Apple has not yet committed.
+        </p>
+      </div>
+
+      <div class="ve-card">
+        <div class="section-label"><span class="dot"></span> Caveats</div>
+        <h3>Known trade-offs</h3>
+        <ul style="font-size:13px;color:var(--muted-foreground);padding-left:18px;line-height:1.8;">
+          <li><strong>Two roots, two ratchets.</strong> More state per session than PQ3.</li>
+          <li><strong>hint-MLWE is newer than MLWE.</strong> Cryptanalysis is reduced from MLWE, but the reduction is not tight — parameter set is conservative.</li>
+          <li><strong>Trades constant overhead for worst-case.</strong> Balanced conversation: TR slightly heavier per epoch than PQ3 (1,416 × 50 vs amortized 2,272 + cheap msgs). Worst case is the win.</li>
+          <li><strong>Signature overhead excluded from comparison.</strong> PQ3's 64 B signature was stripped for an apples-to-apples view.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout callout--info" style="margin-top:24px;">
+      <strong>Reading order.</strong> If you want the core technical idea: §1.2 (Katana overview + flaw) → §6.1 (Katana construction) → §6.2 (security proof via hint-MLWE). If you want the protocol story: §1.1 (TR design) → §4 (full TR protocol) → §7 (efficiency analysis).
+    </div>
+  </section>
+
+  <!-- ============ FOOTER ============ -->
+  <footer style="border-top:1px solid var(--border);padding-top:24px;color:var(--muted-foreground);font-size:12px;font-family:var(--font-mono);">
+    Source: Dodis, Jost, Katsumata, Prest, Schmidt. <em>The Triple Ratchet: A Bandwidth Efficient Hybrid-Secure Signal Protocol.</em> IACR ePrint 2025/078, March 2025.
+  </footer>
+
+</div>
+
+</body>
+</html>
