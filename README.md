@@ -31,6 +31,7 @@ Rendered pages: **https://dougcooper.github.io/learnings/**
 
 | Topic | Read | Source |
 |---|---|---|
+| **MLS** — RFC 9420: the ratchet tree and tree invariant, O(log n) UpdatePath key encapsulation, the epoch key schedule, the per-sender secret tree with handshake/application ratchets, Commit mechanics, message framing, external join / ReInit / branching, FS + PCS against an untrusted Delivery Service | [open](https://dougcooper.github.io/learnings/messaging/rfc9420-mls.html) | [`messaging/rfc9420-mls.html`](messaging/rfc9420-mls.html) |
 | **Triple Ratchet** — Dodis, Jost, Katsumata, Prest, Schmidt (IACR 2025/078): Signal's Double Ratchet plus a post-quantum ratchet with erasure-coded chunks, the lattice RKEM Katana (hint-MLWE), the critical security flaw in prior lattice RKEM proofs, per-epoch bandwidth 1,416 B vs Kyber's 2,272 B | [open](https://dougcooper.github.io/learnings/messaging/triple-ratchet.html) | [`messaging/triple-ratchet.html`](messaging/triple-ratchet.html) |
 | **Sparse CKA** — Auerbach, Dodis, Jost, Katsumata, Schmidt (IACR 2025/2267): the epoch-vs-message mismatch under chunking, the Sparse CKA abstraction, three new protocols (Opp-UniKEM-CKA, Opp-BiKEM-CKA, Opp-RKEM-CKA) with opportunistic sending, the comparison framework on vulnerable *epoch* sets, the headline result — no protocol dominates across balanced / send-heavy / receive-heavy patterns | [open](https://dougcooper.github.io/learnings/messaging/iacr-2025-2267-explainer.html) | [`messaging/iacr-2025-2267-explainer.html`](messaging/iacr-2025-2267-explainer.html) |
 
