@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Signal Double Ratchet — Visual Explainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --background: oklch(0.97 0.005 260);
+    --foreground: oklch(0.18 0.02 260);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.18 0.02 260);
+    --muted: oklch(0.92 0.01 260);
+    --muted-foreground: oklch(0.40 0.02 260);
+    --primary: oklch(0.50 0.25 280);
+    --primary-foreground: oklch(1 0 0);
+    --secondary: oklch(0.50 0.18 180);
+    --accent: oklch(0.60 0.22 50);
+    --accent-foreground: oklch(0.18 0.02 260);
+    --destructive: oklch(0.50 0.25 25);
+    --success: oklch(0.45 0.20 150);
+    --warning: oklch(0.55 0.18 85);
+    --border: oklch(0.88 0.01 260);
+    --code-bg: oklch(0.92 0.01 260);
+    --ring: oklch(0.50 0.25 280);
+    --radius: 0.625rem;
+
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+    --font-display: ui-serif, Georgia, 'Times New Roman', serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: oklch(0.15 0.02 260);
+      --foreground: oklch(0.90 0.01 260);
+      --card: oklch(0.22 0.02 260);
+      --card-foreground: oklch(0.90 0.01 260);
+      --muted: oklch(0.26 0.02 260);
+      --muted-foreground: oklch(0.72 0.02 260);
+      --primary: oklch(0.75 0.18 280);
+      --primary-foreground: oklch(0.15 0.02 260);
+      --accent: oklch(0.70 0.20 60);
+      --border: oklch(0.35 0.02 260);
+      --code-bg: oklch(0.26 0.02 260);
+      --destructive: oklch(0.65 0.20 25);
+      --success: oklch(0.72 0.17 150);
+      --warning: oklch(0.75 0.15 85);
+    }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    padding: 48px 32px;
+    min-height: 100vh;
+    line-height: 1.6;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .anim { animation: fadeUp 0.4s ease-out both; animation-delay: calc(var(--i, 0) * 0.06s); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
+    }
+  }
+
+  .container { max-width: 1100px; margin: 0 auto; }
+
+  /* ===== HEADER ===== */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--primary);
+    margin-bottom: 12px;
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: 42px;
+    font-weight: 600;
+    letter-spacing: -1px;
+    line-height: 1.1;
+    margin-bottom: 16px;
+    text-wrap: balance;
+  }
+
+  .lead {
+    font-size: 16px;
+    color: var(--muted-foreground);
+    max-width: 720px;
+    margin-bottom: 32px;
+    line-height: 1.6;
+  }
+
+  /* ===== SUMMARY STRIP ===== */
+  .summary-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 40px;
+  }
+
+  .kpi {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+  }
+
+  .kpi-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted-foreground);
+    margin-bottom: 8px;
+  }
+
+  .kpi-value {
+    font-family: var(--font-display);
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--foreground);
+    margin-bottom: 2px;
+  }
+
+  .kpi-detail {
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+
+  /* ===== SECTION ===== */
+  .section-block { margin-bottom: 40px; }
+
+  .section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--primary);
+    font-weight: 600;
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+  }
+
+  .section-blurb {
+    font-size: 14px;
+    color: var(--muted-foreground);
+    max-width: 720px;
+    margin-bottom: 20px;
+  }
+
+  /* ===== CARDS ===== */
+  .ve-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+  }
+
+  .ve-card--hero {
+    background: color-mix(in oklab, var(--primary) 5%, var(--card));
+    border-color: color-mix(in oklab, var(--primary) 30%, var(--border));
+    box-shadow: 0 4px 24px color-mix(in oklab, var(--primary) 10%, transparent);
+  }
+
+  .ve-card--recessed {
+    background: var(--muted);
+    border-color: transparent;
+  }
+
+  .ve-card-label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ve-card-label .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  /* Color variants via Plannotator tokens */
+  .ve-card--primary { border-color: color-mix(in oklab, var(--primary) 30%, var(--border)); }
+  .ve-card--primary .ve-card-label { color: var(--primary); }
+  .ve-card--primary .ve-card-label .dot { background: var(--primary); }
+
+  .ve-card--secondary { border-color: color-mix(in oklab, var(--secondary) 30%, var(--border)); }
+  .ve-card--secondary .ve-card-label { color: var(--secondary); }
+  .ve-card--secondary .ve-card-label .dot { background: var(--secondary); }
+
+  .ve-card--accent { border-color: color-mix(in oklab, var(--accent) 30%, var(--border)); }
+  .ve-card--accent .ve-card-label { color: var(--accent); }
+  .ve-card--accent .ve-card-label .dot { background: var(--accent); }
+
+  .ve-card--success { border-color: color-mix(in oklab, var(--success) 30%, var(--border)); }
+  .ve-card--success .ve-card-label { color: var(--success); }
+  .ve-card--success .ve-card-label .dot { background: var(--success); }
+
+  .ve-card--warning { border-color: color-mix(in oklab, var(--warning) 30%, var(--border)); }
+  .ve-card--warning .ve-card-label { color: var(--warning); }
+  .ve-card--warning .ve-card-label .dot { background: var(--warning); }
+
+  .ve-card--destructive { border-color: color-mix(in oklab, var(--destructive) 30%, var(--border)); }
+  .ve-card--destructive .ve-card-label { color: var(--destructive); }
+  .ve-card--destructive .ve-card-label .dot { background: var(--destructive); }
+
+  /* ===== INNER GRID ===== */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+
+  .inner-card {
+    background: var(--muted);
+    border: 1px solid transparent;
+    border-radius: calc(var(--radius) - 2px);
+    padding: 12px 16px;
+  }
+
+  .inner-card-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: var(--foreground);
+  }
+
+  .inner-card-desc {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--muted-foreground);
+  }
+
+  /* ===== LIST / PIPELINE ===== */
+  .node-list {
+    list-style: none;
+    font-size: 13px;
+    line-height: 1.9;
+  }
+
+  .node-list li {
+    padding-left: 18px;
+    position: relative;
+  }
+
+  .node-list li::before {
+    content: '›';
+    color: var(--primary);
+    font-weight: 600;
+    position: absolute;
+    left: 4px;
+  }
+
+  code, .mono {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    background: color-mix(in oklab, var(--primary) 10%, transparent);
+    color: var(--primary);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+
+  /* ===== CODE BLOCKS ===== */
+  .code-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--foreground);
+    margin-top: 12px;
+  }
+
+  .code-block .kw  { color: var(--primary); font-weight: 600; }
+  .code-block .fn  { color: var(--accent); }
+  .code-block .str { color: var(--success); }
+  .code-block .cm  { color: var(--muted-foreground); font-style: italic; }
+  .code-block .num { color: var(--warning); }
+
+  /* ===== DIAGRAM SHELL (Mermaid) ===== */
+  .diagram-shell {
+    position: relative;
+    margin-top: 12px;
+  }
+
+  .diagram-hint {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted-foreground);
+    margin-bottom: 8px;
+    opacity: 0.7;
+  }
+
+  .mermaid-wrap {
+    position: relative;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px 16px 16px;
+    overflow: auto;
+    min-height: 480px;
+  }
+
+  .zoom-controls {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    gap: 2px;
+    z-index: 10;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px;
+  }
+
+  .zoom-controls button {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    color: var(--muted-foreground);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .zoom-controls button:hover {
+    background: var(--muted);
+    color: var(--foreground);
+  }
+
+  .mermaid-wrap { cursor: grab; }
+  .mermaid-wrap.is-panning { cursor: grabbing; user-select: none; }
+
+  .mermaid-viewport {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+    min-height: 420px;
+  }
+
+  .mermaid-canvas { position: absolute; top: 0; left: 0; }
+
+  .zoom-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--muted-foreground);
+    padding: 0 6px;
+    white-space: nowrap;
+  }
+
+  .mermaid .nodeLabel { font-family: var(--font-sans) !important; font-size: 14px !important; }
+  .mermaid .edgeLabel { font-family: var(--font-mono) !important; font-size: 11px !important; }
+
+  /* ===== TABLE ===== */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 12px;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--muted-foreground);
+    font-weight: 600;
+  }
+
+  tr:last-child td { border-bottom: none; }
+
+  td code {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--muted);
+    color: var(--foreground);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  /* ===== CALLOUT ===== */
+  .callout {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--primary);
+    border-radius: 0 calc(var(--radius)) calc(var(--radius)) 0;
+    padding: 16px 20px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--muted-foreground);
+    margin-top: 16px;
+  }
+
+  .callout strong { color: var(--foreground); }
+  .callout code {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: color-mix(in oklab, var(--primary) 10%, transparent);
+    color: var(--primary);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 768px) {
+    body { padding: 24px 16px; }
+    h1 { font-size: 28px; }
+    .summary-strip { grid-template-columns: 1fr 1fr; }
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .mermaid-wrap { min-height: 360px; padding: 16px 8px 8px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <p class="eyebrow anim" style="--i:0">Signal Protocol · Specification Explainer</p>
+  <h1 class="anim" style="--i:1">The Double Ratchet Algorithm</h1>
+  <p class="lead anim" style="--i:2">
+    The Double Ratchet is the algorithm Signal uses to encrypt every message in a session.
+    It combines a <strong>symmetric-key ratchet</strong> (a chain of keys derived from the previous one, so
+    each message gets its own key) with a <strong>Diffie-Hellman ratchet</strong> (a new key agreement each time
+    someone replies, so past messages stay secret even if a key leaks later). Together they give
+    <em>forward secrecy</em> (past messages stay sealed) and <em>post-compromise security</em>
+    (a fresh key agreement heals the channel after a leak).
+  </p>
+
+  <p style="font-family:var(--font-mono); font-size:12.5px; margin:14px 0 22px 0; line-height:1.5;">
+    <a style="color:var(--secondary); text-decoration:none; border-bottom:1px solid var(--secondary);" href="https://signal.org/docs/specifications/doubleratchet/" target="_blank" rel="noopener">Source specification ↗ — signal.org/docs/specifications/doubleratchet · Rev 4, 2025-11-04</a>
+  </p>
+
+  <div class="summary-strip anim" style="--i:3">
+    <div class="kpi">
+      <div class="kpi-label">Ratchet layers</div>
+      <div class="kpi-value">3</div>
+      <div class="kpi-detail">Symmetric, DH, Double</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">KDFs defined</div>
+      <div class="kpi-value">7</div>
+      <div class="kpi-detail">Root, CK, HE, SCKA, hybrid</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Message keys</div>
+      <div class="kpi-value">1/n</div>
+      <div class="kpi-detail">Per-message derivation</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Spec version</div>
+      <div class="kpi-value">Rev 4</div>
+      <div class="kpi-detail">2025-11-04</div>
+    </div>
+  </div>
+
+  <!-- SECTION 1: BIG PICTURE DIAGRAM -->
+  <div class="section-block anim" style="--i:4">
+    <div class="section-header">
+      <span class="section-num">01</span>
+      <h2 class="section-title">The big picture — Alice and Bob's ratchet</h2>
+    </div>
+    <p class="section-blurb">
+      Each row is a step. The coloured boxes show what keys Alice and Bob are holding at that moment,
+      and the arrows show what gets sent over the wire. The dashed boxes on the right show the
+      <em>message keys</em> that fall out of the chain — one per message.
+    </p>
+
+    <section class="diagram-shell">
+      <p class="diagram-hint">Ctrl/Cmd + wheel to zoom · scroll to pan · double-click to fit</p>
+      <div class="mermaid-wrap">
+        <div class="zoom-controls">
+          <button type="button" data-action="zoom-in" title="Zoom in">+</button>
+          <button type="button" data-action="zoom-out" title="Zoom out">−</button>
+          <button type="button" data-action="zoom-fit" title="Smart fit">⟳</button>
+          <button type="button" data-action="zoom-one" title="1:1">1:1</button>
+          <button type="button" data-action="zoom-expand" title="Open full size">⛶</button>
+          <span class="zoom-label">Loading…</span>
+        </div>
+        <div class="mermaid-viewport">
+          <div class="mermaid mermaid-canvas"></div>
+        </div>
+      </div>
+      <script type="text/plain" class="diagram-source">
+sequenceDiagram
+    autonumber
+    participant A as Alice
+    participant B as Bob
+
+    Note over A: start — RK₀ · DHs · CKs
+    A->>B: msg 1 + DHpub
+    Note right of A: symmetric ratchet<br/>CKs becomes MK₁ (encrypt)
+    Note left of B: DH ratchet<br/>new DHr, fresh RK₁ · CKr<br/>CKr becomes MK₁ (decrypt)
+
+    B->>A: msg 2 + DHpub
+    Note right of B: DH ratchet<br/>new DHs, fresh RK₂ · CKs<br/>CKs becomes MK₂ (encrypt)
+    Note left of A: DH ratchet<br/>new DHr, fresh RK₂ · CKr<br/>CKr becomes MK₂ (decrypt)
+
+    Note over A,B: out-of-order messages<br/>store unreceived MKs as MKSKIPPED
+      </script>
+    </section>
+  </div>
+
+  <!-- SECTION 2: SYMMETRIC-KEY RATCHET -->
+  <div class="section-block anim" style="--i:5">
+    <div class="section-header">
+      <span class="section-num">02</span>
+      <h2 class="section-title">The symmetric-key ratchet (per-message keys)</h2>
+    </div>
+    <p class="section-blurb">
+      A <em>chain key</em> (CK) is a single secret that evolves step by step. Each step turns the
+      current CK into a new CK <em>and</em> spits out a fresh message key (MK). MK encrypts one
+      message; CK feeds the next step. The maths is one-way: a leaked MK can't recover CK, and a
+      leaked CK can't recover past MKs.
+    </p>
+
+    <div class="ve-card ve-card--primary">
+      <div class="ve-card-label"><span class="dot"></span>KDF_CK — the chain step</div>
+      <div class="code-block"><span class="cm">// Each call advances the chain by one message</span>
+<span class="kw">function</span> <span class="fn">KDF_CK</span>(ck):
+    <span class="kw">const</span> (new_ck, mk) = <span class="fn">HMAC</span>(ck, <span class="num">0x02</span>)
+    <span class="kw">return</span> (new_ck, mk)
+    <span class="cm">// mk  → message key (32 bytes) — encrypts one message</span>
+    <span class="cm">// ck  → new chain key — feeds the next step</span></div>
+    </div>
+
+    <div class="grid-3" style="margin-top:12px">
+      <div class="inner-card">
+        <div class="inner-card-title">Sending chain</div>
+        <div class="inner-card-desc">
+          Alice's <code>CKs</code>. Each time she sends, she steps it forward and gets the next MK.
+          After sending 10 messages she's had 10 distinct MKs from one initial CK.
+        </div>
+      </div>
+      <div class="inner-card">
+        <div class="inner-card-title">Receiving chain</div>
+        <div class="inner-card-desc">
+          Bob's <code>CKr</code>. Same algorithm, but he uses it to decrypt. He must land on the same
+          MKs Alice produced, which means both sides need the same starting CK (derived from a shared DH).
+        </div>
+      </div>
+      <div class="inner-card">
+        <div class="inner-card-title">Why one-way?</div>
+        <div class="inner-card-desc">
+          HMAC is a one-way function. Knowing <code>MK_n</code> doesn't let an attacker find
+          <code>CK_{n+1}</code>, so past message keys remain secret even if a current key leaks.
+        </div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>Try to compute, then read on.</strong> <code>KDF_CK</code> is the only KDF called
+      per message. The DH ratchet below only fires when the conversation direction flips — so the
+      CPU cost of "encrypt one message" is dominated by HMAC, not by Diffie-Hellman.
+    </div>
+  </div>
+
+  <!-- SECTION 3: DH RATCHET -->
+  <div class="section-block anim" style="--i:6">
+    <div class="section-header">
+      <span class="section-num">03</span>
+      <h2 class="section-title">The DH ratchet (a fresh key agreement per turn)</h2>
+    </div>
+    <p class="section-blurb">
+      Every time the conversation direction flips (Alice replies, then Bob replies), both parties
+      generate a new DH key pair, exchange public keys, and mix the resulting shared secret into a
+      new root key (RK). This RK seeds a fresh chain — so even a long-lived attacker who has
+      captured all previous DH outputs can't decrypt future messages.
+    </p>
+
+    <div class="ve-card ve-card--secondary">
+      <div class="ve-card-label"><span class="dot"></span>KDF_RK — the DH step</div>
+      <div class="code-block"><span class="cm">// Triggered when a new DH ratchet public key arrives</span>
+<span class="kw">function</span> <span class="fn">KDF_RK</span>(rk, dh_out):
+    <span class="cm">// dh_out = DH(my_DH_priv, their_DH_pub) — ECDH shared secret</span>
+    <span class="kw">const</span> (new_rk, ck) = <span class="fn">HMAC</span>(rk, dh_out)
+    <span class="kw">return</span> (new_rk, ck)
+    <span class="cm">// new_rk → next root key (will feed the next DH step)</span>
+    <span class="cm">// ck     → first chain key of the new chain</span></div>
+    </div>
+
+    <div class="grid-2" style="margin-top:12px">
+      <div class="ve-card ve-card--secondary">
+        <div class="ve-card-label"><span class="dot"></span>State variables</div>
+        <ul class="node-list">
+          <li><code>DHs</code>, <code>DHr</code> — our and their current DH key pairs</li>
+          <li><code>RK</code> — root key, one per DH ratchet step</li>
+          <li><code>CKs</code>, <code>CKr</code> — current chain keys</li>
+          <li><code>Ns</code>, <code>Nr</code> — message counters per chain</li>
+          <li><code>PN</code> — length of the previous sending chain (for header decryption)</li>
+          <li><code>MKSKIPPED</code> — map of skipped message keys for out-of-order delivery</li>
+        </ul>
+      </div>
+      <div class="ve-card ve-card--warning">
+        <div class="ve-card-label"><span class="dot"></span>Post-compromise security</div>
+        <p style="font-size:13px;color:var(--muted-foreground);line-height:1.6">
+          The whole point of the DH ratchet: if an attacker once got hold of the current state
+          (a phone was compromised, for example), the next round of DH exchanges produces keys
+          they don't have. The channel "heals" itself on the next reply.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 4: HEADER ENCRYPTION -->
+  <div class="section-block anim" style="--i:7">
+    <div class="section-header">
+      <span class="section-num">04</span>
+      <h2 class="section-title">Header encryption (Section 4)</h2>
+    </div>
+    <p class="section-blurb">
+      The Double Ratchet encrypts the <em>payload</em> — but the <em>header</em> (which DH key and
+      which message counter) leaks metadata. The header itself gets encrypted with a per-message
+      header key so that an eavesdropper can't even see who sent what.
+    </p>
+
+    <div class="ve-card ve-card--accent">
+      <div class="ve-card-label"><span class="dot"></span>KDF_RK_HE + AES-CBC + HMAC</div>
+      <div class="code-block"><span class="cm">// Header key derived from each root key</span>
+<span class="kw">function</span> <span class="fn">KDF_RK_HE</span>(rk):
+    <span class="kw">return</span> <span class="fn">HKDF</span>(rk, <span class="str">"HeaderKey"</span>, <span class="num">64</span>)  <span class="cm">// 32B enc + 32B auth</span>
+
+<span class="cm">// Per-message header encryption (Section 4.2)</span>
+header_key = <span class="fn">KDF_RK_HE</span>(rk_at_step)
+header_ct   = <span class="fn">AES-256-CBC</span>(header_key.enc, iv=<span class="num">0</span>, <span class="fn">pad</span>(dh_pub || PN || N))
+header_mac  = <span class="fn">HMAC-SHA256</span>(header_key.auth, header_ct)</div>
+    </div>
+
+    <div class="callout">
+      <strong>Why bother?</strong> Without header encryption, a passive observer sees "user A sent
+      50 messages, then user B replied with a new DH key" — leaking traffic patterns. Encrypting
+      the header with a different root-key-derived key per step makes even the metadata opaque.
+    </div>
+  </div>
+
+  <!-- SECTION 5: SPQR -->
+  <div class="section-block anim" style="--i:8">
+    <div class="section-header">
+      <span class="section-num">05</span>
+      <h2 class="section-title">SPQR — Sparse Post-Quantum Ratchet (Section 5)</h2>
+    </div>
+    <p class="section-blurb">
+      The DH ratchet is secure against classical computers, but a future <em>quantum</em> computer
+      could break Diffie-Hellman. SPQR adds a second, slower ratchet that uses a
+      <strong>post-quantum key encapsulation</strong> (ML-KEM, formerly Kyber). It runs less often
+      — every few messages — because post-quantum ops are heavier.
+    </p>
+
+    <div class="grid-2">
+      <div class="ve-card ve-card--success">
+        <div class="ve-card-label"><span class="dot"></span>SCKA — Symmetric Cryptographic Key Agreement</div>
+        <ul class="node-list">
+          <li><code>KDF_SCKA_INIT</code> — initialise from a PQC shared secret</li>
+          <li><code>KDF_SCKA_RK</code> — root-chain step (analogous to KDF_RK but post-quantum)</li>
+          <li><code>KDF_SCKA_CK</code> — chain step (analogous to KDF_CK)</li>
+        </ul>
+      </div>
+      <div class="ve-card ve-card--success">
+        <div class="ve-card-label"><span class="dot"></span>ML-KEM Braid</div>
+        <p style="font-size:13px;color:var(--muted-foreground);line-height:1.6">
+          SPQR's primitive is an <em>ML-KEM Braid</em>: a small batch of ML-KEM encapsulations
+          whose shared secrets are combined into the SCKA chain. This gives redundancy: even if
+          a single KEM output is later broken, the others still hold the chain together.
+        </p>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>The "harvest now, decrypt later" threat.</strong> Adversaries are recording
+      encrypted traffic today so they can decrypt it once quantum computers exist. SPQR makes that
+      strategy ineffective for the messages it covers — even a future quantum adversary can't
+      retroactively break ML-KEM.
+    </div>
+  </div>
+
+  <!-- SECTION 6: TRIPLE RATCHET -->
+  <div class="section-block anim" style="--i:9">
+    <div class="section-header">
+      <span class="section-num">06</span>
+      <h2 class="section-title">Triple Ratchet — Double Ratchet + SPQR in parallel (Section 6)</h2>
+    </div>
+    <p class="section-blurb">
+      The Triple Ratchet runs the classical Double Ratchet and SPQR <em>side by side</em>. Each
+      step produces two root keys; a final KDF_HYBRID combines them. The result has the speed
+      of classical crypto, the quantum-resistance of post-quantum crypto, and the failure modes
+      of whichever side breaks first.
+    </p>
+
+    <div class="ve-card ve-card--primary ve-card--hero">
+      <div class="ve-card-label"><span class="dot"></span>KDF_HYBRID — combining two ratchets</div>
+      <div class="code-block"><span class="cm">// Final step of each ratchet — combine classical and PQ outputs</span>
+<span class="kw">function</span> <span class="fn">KDF_HYBRID</span>(rk_classical, rk_pq):
+    <span class="kw">return</span> <span class="fn">HKDF</span>(
+        ikm  = rk_classical || rk_pq,
+        salt = <span class="str">"TripleRatchetHybrid"</span>,
+        info = <span class="str">""</span>,
+        L    = <span class="num">64</span>
+    )  <span class="cm">// new RK || CK</span></div>
+    </div>
+
+    <div class="grid-3" style="margin-top:12px">
+      <div class="inner-card">
+        <div class="inner-card-title">Why hybrid?</div>
+        <div class="inner-card-desc">
+          A single primitive can fail. Combining X25519 (classical) with ML-KEM (PQ) means the
+          session is safe unless <em>both</em> are broken at once — which is extremely unlikely.
+        </div>
+      </div>
+      <div class="inner-card">
+        <div class="inner-card-title">Performance</div>
+        <div class="inner-card-desc">
+          SPQR steps happen less often (e.g. every 10 messages) because ML-KEM is bigger and
+          slower. Classical X25519 stays in the per-message path.
+        </div>
+      </div>
+      <div class="inner-card">
+        <div class="inner-card-title">Migration path</div>
+        <div class="inner-card-desc">
+          Old clients can still talk to new ones: the classical Double Ratchet continues to
+          work alone, and SPQR adds on top when both sides support it.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 7: PQXDH INTEGRATION -->
+  <div class="section-block anim" style="--i:10">
+    <div class="section-header">
+      <span class="section-num">07</span>
+      <h2 class="section-title">PQXDH — how the first key gets there (Section 7.1)</h2>
+    </div>
+    <p class="section-blurb">
+      The Double Ratchet needs a starting secret (<code>SK</code>, 32 bytes). That secret comes
+      from <strong>PQXDH</strong> (Post-Quantum Extended Triple Diffie-Hellman) — a one-shot
+      key agreement performed when Alice first messages Bob. PQXDH blends X25519 (classical)
+      with ML-KEM (post-quantum), so the very first message benefits from the same hybrid
+      protection as the rest of the session.
+    </p>
+
+    <div class="ve-card ve-card--secondary">
+      <div class="ve-card-label"><span class="dot"></span>What PQXDH delivers</div>
+      <ul class="node-list">
+        <li>A 32-byte shared secret <code>SK</code></li>
+        <li>The initial <code>RK</code> fed into the first DH ratchet step</li>
+        <li>One-shot: it runs once per session, not per message</li>
+        <li>If the recipient is offline, the sender's prekey bundle carries the PQ part</li>
+      </ul>
+    </div>
+
+    <div class="callout">
+      <strong>Where PQXDH stops and Double Ratchet starts.</strong> PQXDH answers "how do two
+      strangers agree on a secret over an untrusted network?" The Double Ratchet answers
+      "now that we share a secret, how do we keep it secret for the next 10,000 messages?"
+    </div>
+  </div>
+
+  <!-- SECTION 8: ALGORITHM TABLE -->
+  <div class="section-block anim" style="--i:11">
+    <div class="section-header">
+      <span class="section-num">08</span>
+      <h2 class="section-title">Recommended algorithms (one-stop reference)</h2>
+    </div>
+
+    <div class="ve-card">
+      <div class="ve-card-label"><span class="dot"></span>Cryptographic primitives by role</div>
+      <table>
+        <thead>
+          <tr><th>Role</th><th>Algorithm</th><th>Output</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Diffie-Hellman (classical)</td><td><code>X25519</code> or <code>X448</code></td><td>32 / 56 bytes</td></tr>
+          <tr><td>KDF (chain / root)</td><td><code>HKDF</code> with <code>SHA-256</code> or <code>SHA-512</code></td><td>variable</td></tr>
+          <tr><td>Message-key derivation</td><td><code>HMAC</code> with the chain key</td><td>32 bytes</td></tr>
+          <tr><td>Cipher (payload)</td><td><code>AES-256-CBC</code> + <code>HMAC-SHA256</code></td><td>encrypt-then-MAC</td></tr>
+          <tr><td>Header encryption</td><td><code>AES-256-CBC</code> + <code>HMAC-SHA256</code></td><td>encrypt-then-MAC</td></tr>
+          <tr><td>Post-quantum KEM</td><td><code>ML-KEM-768</code> (Braid of multiple)</td><td>per encapsulation</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- SECTION 9: SECURITY PROPERTIES -->
+  <div class="section-block anim" style="--i:12">
+    <div class="section-header">
+      <span class="section-num">09</span>
+      <h2 class="section-title">Security properties at a glance</h2>
+    </div>
+
+    <div class="grid-2">
+      <div class="ve-card ve-card--success">
+        <div class="ve-card-label"><span class="dot"></span>Forward secrecy</div>
+        <p style="font-size:13px;color:var(--muted-foreground);line-height:1.6">
+          Compromising <em>today's</em> key doesn't reveal <em>past</em> messages. Provided by the
+          symmetric ratchet: each MK is one-way derived from the previous chain key.
+        </p>
+      </div>
+      <div class="ve-card ve-card--success">
+        <div class="ve-card-label"><span class="dot"></span>Post-compromise security</div>
+        <p style="font-size:13px;color:var(--muted-foreground);line-height:1.6">
+          Compromising <em>today's</em> key doesn't reveal <em>future</em> messages — once the
+          next DH ratchet step runs. The DH exchange mints a fresh key the attacker doesn't have.
+        </p>
+      </div>
+      <div class="ve-card ve-card--warning">
+        <div class="ve-card-label"><span class="dot"></span>Quantum resistance</div>
+        <p style="font-size:13px;color:var(--muted-foreground);line-height:1.6">
+          Only with SPQR enabled (Section 5/6). Plain Double Ratchet's X25519 DH can be broken
+          retroactively by a future quantum computer. The Triple Ratchet hybrid combines both.
+        </p>
+      </div>
+      <div class="ve-card ve-card--primary">
+        <div class="ve-card-label"><span class="dot"></span>Out-of-order delivery</div>
+        <p style="font-size:13px;color:var(--muted-foreground);line-height:1.6">
+          The receiver caches skipped message keys in <code>MKSKIPPED</code> with a cap
+          (MAX_SKIP) so an attacker can't make the receiver store millions of keys via spam.
+        </p>
+      </div>
+    </div>
+
+    <div class="callout">
+      <strong>One sentence to remember.</strong> The Double Ratchet gets a brand-new message key
+      from a one-way function on every send (cheap, fast), and a brand-new root key from a fresh
+      Diffie-Hellman on every direction change (heals the channel). SPQR adds a slower
+      post-quantum ratchet on top, and the Triple Ratchet combines both so neither side alone
+      is the weak link.
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  import elkLayouts from 'https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk/dist/mermaid-layout-elk.esm.min.mjs';
+
+  const config = {
+    fitPadding: 28,
+    minHeight: 420,
+    maxHeightPx: 960,
+    maxHeightVh: 0.84,
+    maxInitialZoom: 1.8,
+    minZoom: 0.08,
+    maxZoom: 6.5,
+    zoomStep: 0.14,
+    readabilityFloor: 0.58
+  };
+  const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+  let activeDrag = null;
+  addEventListener('mousemove', (e) => activeDrag?.onMove(e));
+  addEventListener('mouseup', () => { activeDrag?.onEnd(); activeDrag = null; });
+
+  const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const fg = isDark ? '#e5e7eb' : '#1f2937';
+  const dim = isDark ? '#9ca3af' : '#6b7280';
+  const card = isDark ? '#1f2937' : '#ffffff';
+  const border = isDark ? '#374151' : '#e5e7eb';
+
+  mermaid.registerLayoutLoaders(elkLayouts);
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'base',
+    look: 'classic',
+    layout: 'elk',
+    themeVariables: {
+      fontFamily: "'Inter', system-ui, sans-serif",
+      fontSize: '14px',
+      primaryColor: isDark ? '#3a2f5a' : '#ede9fe',
+      primaryBorderColor: isDark ? '#a78bfa' : '#7c3aed',
+      primaryTextColor: fg,
+      secondaryColor: isDark ? '#1a3d3a' : '#ccfbf1',
+      secondaryBorderColor: isDark ? '#5eead4' : '#0d9488',
+      secondaryTextColor: fg,
+      tertiaryColor: isDark ? '#3d2f1a' : '#fef3c7',
+      tertiaryBorderColor: isDark ? '#fbbf24' : '#d97706',
+      tertiaryTextColor: fg,
+      lineColor: dim,
+      noteBkgColor: card,
+      noteTextColor: fg,
+      noteBorderColor: border,
+      actorBkg: card,
+      actorBorder: border,
+      actorTextColor: fg,
+      actorLineColor: dim,
+      signalColor: dim,
+      signalTextColor: fg,
+      labelBoxBkgColor: card,
+      labelBoxBorderColor: border,
+      labelTextColor: fg,
+      loopTextColor: fg,
+    }
+  });
+
+  function initDiagram(shell) {
+    const wrap = shell.querySelector('.mermaid-wrap');
+    const viewport = shell.querySelector('.mermaid-viewport');
+    const canvas = shell.querySelector('.mermaid-canvas');
+    const source = shell.querySelector('.diagram-source');
+    const label = shell.querySelector('.zoom-label');
+    if (!wrap || !viewport || !canvas || !source || !label) return;
+
+    let zoom = 1, fitMode = 'contain', panX = 0, panY = 0, svgW = 0, svgH = 0;
+    let sx = 0, sy = 0, spx = 0, spy = 0;
+
+    function constrainPan() {
+      const vpW = viewport.clientWidth, vpH = viewport.clientHeight;
+      const rW = svgW * zoom, rH = svgH * zoom, pad = config.fitPadding;
+      panX = (rW + pad * 2 <= vpW) ? (vpW - rW) / 2 : clamp(panX, vpW - rW - pad, pad);
+      panY = (rH + pad * 2 <= vpH) ? (vpH - rH) / 2 : clamp(panY, vpH - rH - pad, pad);
+    }
+
+    function applyTransform() {
+      const svg = canvas.querySelector('svg');
+      if (!svg || !svgW) return;
+      constrainPan();
+      svg.style.width = (svgW * zoom) + 'px';
+      svg.style.height = (svgH * zoom) + 'px';
+      canvas.style.transform = `translate(${panX}px, ${panY}px)`;
+      label.textContent = Math.round(zoom * 100) + '% — ' + fitMode;
+    }
+
+    function canPan() {
+      const rW = svgW * zoom, rH = svgH * zoom;
+      return rW + config.fitPadding * 2 > viewport.clientWidth
+          || rH + config.fitPadding * 2 > viewport.clientHeight;
+    }
+
+    function computeSmartFit() {
+      const vpW = viewport.clientWidth, vpH = viewport.clientHeight;
+      const aW = Math.max(80, vpW - config.fitPadding * 2);
+      const aH = Math.max(80, vpH - config.fitPadding * 2);
+      const contain = Math.min(aW / svgW, aH / svgH);
+      let z = contain, mode = 'contain';
+      if (contain < config.readabilityFloor) {
+        const chartR = svgH / svgW, vpR = vpH / Math.max(vpW, 1);
+        if (chartR >= vpR) { z = aW / svgW; mode = 'width-priority'; }
+        else { z = aH / svgH; mode = 'height-priority'; }
+      }
+      return { zoom: clamp(z, config.minZoom, config.maxInitialZoom), mode };
+    }
+
+    function fitDiagram() {
+      if (!svgW) return;
+      const fit = computeSmartFit();
+      zoom = fit.zoom; fitMode = fit.mode;
+      panX = (viewport.clientWidth - svgW * zoom) / 2;
+      panY = (viewport.clientHeight - svgH * zoom) / 2;
+      applyTransform();
+    }
+
+    function setOneToOne() {
+      zoom = clamp(1, config.minZoom, config.maxZoom); fitMode = '1:1';
+      panX = (viewport.clientWidth - svgW * zoom) / 2;
+      panY = (viewport.clientHeight - svgH * zoom) / 2;
+      applyTransform();
+    }
+
+    function zoomAround(factor, cx, cy) {
+      const next = clamp(zoom * factor, config.minZoom, config.maxZoom);
+      const ratio = next / zoom;
+      panX = cx - ratio * (cx - panX);
+      panY = cy - ratio * (cy - panY);
+      zoom = next; fitMode = 'custom';
+      applyTransform();
+    }
+
+    function readSvgNaturalSize(svg) {
+      let w = 0, h = 0;
+      if (svg.viewBox?.baseVal?.width > 0) { w = svg.viewBox.baseVal.width; h = svg.viewBox.baseVal.height; }
+      if (!w) { w = parseFloat(svg.getAttribute('width')) || 0; h = parseFloat(svg.getAttribute('height')) || 0; }
+      if (!w) { const b = svg.getBBox(); w = b.width; h = b.height; }
+      if (!w) { const r = svg.getBoundingClientRect(); w = r.width || 1000; h = r.height || 700; }
+      if (!svg.getAttribute('viewBox')) svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      return { w, h };
+    }
+
+    function setAdaptiveHeight() {
+      if (!svgW) return;
+      const usableW = Math.max(280, wrap.getBoundingClientRect().width - 2);
+      const idealH = (svgH / svgW) * usableW + config.fitPadding * 2;
+      const maxVp = Math.floor(innerHeight * config.maxHeightVh);
+      const hardMax = Math.min(config.maxHeightPx, Math.max(config.minHeight + 40, maxVp));
+      wrap.style.height = Math.round(clamp(idealH, config.minHeight, hardMax)) + 'px';
+    }
+
+    function openInNewTab() {
+      const svg = canvas.querySelector('svg');
+      if (!svg) return;
+      const clone = svg.cloneNode(true);
+      clone.style.width = ''; clone.style.height = '';
+      const bg = isDark ? '#111827' : '#f9fafb';
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Diagram</title><style>
+      body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+      background:${bg};padding:40px;box-sizing:border-box}
+      svg{max-width:100%;max-height:90vh;height:auto}
+      </style></head><body>${clone.outerHTML}</body></html>`;
+      open(URL.createObjectURL(new Blob([html], { type: 'text/html' })), '_blank');
+    }
+
+    async function render() {
+      try {
+        const code = source.textContent.trim();
+        if (!code) { label.textContent = 'Error: Empty source'; return; }
+        const id = 'diagram-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+        const { svg } = await mermaid.render(id, code);
+        const parsed = new DOMParser().parseFromString(svg, 'text/html');
+        const parsedSvg = parsed.body.querySelector('svg');
+        if (!parsedSvg) { label.textContent = 'Error: No SVG'; return; }
+        canvas.replaceChildren(document.adoptNode(parsedSvg));
+        const svgNode = canvas.querySelector('svg');
+        if (!svgNode) { label.textContent = 'Error: No SVG'; return; }
+        const size = readSvgNaturalSize(svgNode);
+        svgW = size.w; svgH = size.h;
+        svgNode.removeAttribute('width');
+        svgNode.removeAttribute('height');
+        svgNode.style.maxWidth = 'none';
+        svgNode.style.display = 'block';
+        setAdaptiveHeight();
+        fitDiagram();
+      } catch (err) {
+        console.error('Mermaid render failed:', err);
+        label.textContent = 'Error: ' + (err.message || 'Render failed');
+      }
+    }
+
+    const actions = {
+      'zoom-in': () => zoomAround(1 + config.zoomStep, viewport.clientWidth / 2, viewport.clientHeight / 2),
+      'zoom-out': () => zoomAround(1 / (1 + config.zoomStep), viewport.clientWidth / 2, viewport.clientHeight / 2),
+      'zoom-fit': fitDiagram,
+      'zoom-one': setOneToOne,
+      'zoom-expand': openInNewTab
+    };
+    Object.entries(actions).forEach(([action, handler]) => {
+      wrap.querySelector(`[data-action="${action}"]`)?.addEventListener('click', handler);
+    });
+    viewport.addEventListener('dblclick', fitDiagram);
+
+    viewport.addEventListener('wheel', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const rect = viewport.getBoundingClientRect();
+        const factor = e.deltaY < 0 ? 1 + config.zoomStep : 1 / (1 + config.zoomStep);
+        zoomAround(factor, e.clientX - rect.left, e.clientY - rect.top);
+        return;
+      }
+      if (canPan()) {
+        e.preventDefault();
+        panX -= e.deltaX; panY -= e.deltaY;
+        applyTransform();
+      }
+    }, { passive: false });
+
+    viewport.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.zoom-controls') || !canPan()) return;
+      wrap.classList.add('is-panning');
+      sx = e.clientX; sy = e.clientY; spx = panX; spy = panY;
+      e.preventDefault();
+      activeDrag = {
+        onMove: (ev) => { panX = spx + (ev.clientX - sx); panY = spy + (ev.clientY - sy); applyTransform(); },
+        onEnd: () => { wrap.classList.remove('is-panning'); }
+      };
+    });
+
+    new ResizeObserver(() => { if (svgW) { setAdaptiveHeight(); fitDiagram(); } }).observe(wrap);
+    render();
+  }
+
+  document.querySelectorAll('.diagram-shell').forEach(initDiagram);
+</script>
+
+</body>
+</html>
