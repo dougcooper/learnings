@@ -40,6 +40,7 @@ Rendered pages: **https://dougcooper.github.io/learnings/**
 
 | Topic | Read | Source |
 |---|---|---|
+| **Bundle Protocol v7** — RFC 9171: the Delay-Tolerant Networking store-carry-forward overlay, bundle node architecture (AA/BPA/CLA), CBOR primary block + canonical blocks + payload, CRC types and block processing flags, dtn/ipn EID schemes, DTN time and creation timestamps, the transmission/dispatch/forwarding/reception/delivery lifecycle, retention constraints, fragmentation and material-extent reassembly, administrative status reports, and the IANA registries | [open](https://dougcooper.github.io/learnings/dtn/rfc9171-bundle-protocol.html) | [`dtn/rfc9171-bundle-protocol.html`](dtn/rfc9171-bundle-protocol.html) |
 | **BPSec** — RFC 9172: the Bundle Protocol security layer for Delay-Tolerant Networking, the two services (BIB integrity, BCB confidentiality) as BP extension blocks, the Abstract Security Block CBOR structure, canonical forms and AAD, BCB-before-BIB processing with verifier/acceptor roles, block-interaction constraints, multi-source waypoint transformation, the "Olive" on-path-attacker threat model, and pluggable security contexts | [open](https://dougcooper.github.io/learnings/dtn/rfc9172-bpsec.html) | [`dtn/rfc9172-bpsec.html`](dtn/rfc9172-bpsec.html) |
 
 ## Adding one
