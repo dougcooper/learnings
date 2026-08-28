@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RFC 9172 — Bundle Protocol Security (BPSec)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+  /* ============ PLOTANNOTATOR THEME TOKENS ============ */
+  :root {
+    --background: oklch(0.97 0.005 260);
+    --foreground: oklch(0.18 0.02 260);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.18 0.02 260);
+    --muted: oklch(0.92 0.01 260);
+    --muted-foreground: oklch(0.40 0.02 260);
+
+    --primary: oklch(0.50 0.25 280);
+    --primary-foreground: oklch(1 0 0);
+    --secondary: oklch(0.50 0.18 180);
+    --accent: oklch(0.60 0.22 50);
+    --accent-foreground: oklch(0.18 0.02 260);
+
+    --destructive: oklch(0.50 0.25 25);
+    --success: oklch(0.45 0.20 150);
+    --warning: oklch(0.55 0.18 85);
+
+    --border: oklch(0.88 0.01 260);
+    --border-bright: oklch(0.78 0.015 260);
+    --code-bg: oklch(0.92 0.01 260);
+    --ring: oklch(0.50 0.25 280);
+    --radius: 0.75rem;
+
+    --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+    --font-display: 'Newsreader', ui-serif, Georgia, serif;
+
+    /* convenience aliases for visual-explainer patterns */
+    --bg: var(--background);
+    --surface: var(--card);
+    --surface2: var(--muted);
+    --text: var(--foreground);
+    --text-dim: var(--muted-foreground);
+    --primary-dim: color-mix(in oklab, var(--primary) 12%, transparent);
+    --secondary-dim: color-mix(in oklab, var(--secondary) 12%, transparent);
+    --accent-dim: color-mix(in oklab, var(--accent) 14%, transparent);
+    --danger: var(--destructive);
+    --danger-dim: color-mix(in oklab, var(--destructive) 12%, transparent);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: oklch(0.15 0.02 260);
+      --foreground: oklch(0.90 0.01 260);
+      --card: oklch(0.22 0.02 260);
+      --card-foreground: oklch(0.90 0.01 260);
+      --muted: oklch(0.26 0.02 260);
+      --muted-foreground: oklch(0.72 0.02 260);
+      --primary: oklch(0.75 0.18 280);
+      --primary-foreground: oklch(0.15 0.02 260);
+      --secondary: oklch(0.72 0.14 180);
+      --accent: oklch(0.70 0.20 60);
+      --accent-foreground: oklch(0.15 0.02 260);
+      --border: oklch(0.35 0.02 260);
+      --border-bright: oklch(0.50 0.02 260);
+      --code-bg: oklch(0.26 0.02 260);
+      --destructive: oklch(0.65 0.20 25);
+      --success: oklch(0.72 0.17 150);
+      --warning: oklch(0.75 0.15 85);
+    }
+  }
+
+  /* ============ RESET + BASE ============ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    background-image:
+      radial-gradient(ellipse at 18% -5%, var(--primary-dim) 0%, transparent 45%),
+      radial-gradient(ellipse at 85% 8%, var(--accent-dim) 0%, transparent 38%);
+    color: var(--text);
+    font-family: var(--font-sans);
+    line-height: 1.55;
+    padding: 56px 40px 96px;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate, .section, .flow-arrow {
+    animation: fadeUp 0.45s ease-out both;
+    animation-delay: calc(var(--i, 0) * 0.05s);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* ============ TYPOGRAPHY ============ */
+  .container { max-width: 1080px; margin: 0 auto; }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2.4px;
+    color: var(--primary);
+    margin-bottom: 18px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .eyebrow::before {
+    content: ''; width: 28px; height: 2px; background: var(--primary); border-radius: 2px;
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: 46px;
+    font-weight: 500;
+    letter-spacing: -0.5px;
+    line-height: 1.12;
+    margin-bottom: 14px;
+    text-wrap: balance;
+  }
+  h1 .it { font-style: italic; color: var(--primary); }
+
+  .lede {
+    font-size: 17px;
+    color: var(--text-dim);
+    max-width: 720px;
+    margin-bottom: 8px;
+    line-height: 1.65;
+  }
+  .lede strong { color: var(--text); font-weight: 600; }
+
+  .meta-strip {
+    display: flex; flex-wrap: wrap; gap: 22px;
+    font-family: var(--font-mono); font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 22px; margin-bottom: 56px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+  }
+  .meta-strip span b { color: var(--text); font-weight: 600; }
+
+  /* ============ SECTION HEADINGS ============ */
+  h2 {
+    font-family: var(--font-display);
+    font-size: 30px;
+    font-weight: 500;
+    letter-spacing: -0.3px;
+    margin-top: 72px;
+    margin-bottom: 8px;
+  }
+  h2:first-of-type { margin-top: 0; }
+  .section-intro {
+    color: var(--text-dim);
+    font-size: 15px;
+    max-width: 720px;
+    margin-bottom: 30px;
+  }
+  .section-intro code {
+    font-family: var(--font-mono); font-size: 13px;
+    background: var(--code-bg); color: var(--primary);
+    padding: 1px 6px; border-radius: 4px;
+  }
+
+  /* ============ KPI / STAT STRIP ============ */
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 8px;
+  }
+  .kpi {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 16px;
+  }
+  .kpi .n {
+    font-family: var(--font-display);
+    font-size: 34px; font-weight: 500;
+    color: var(--primary); line-height: 1;
+    margin-bottom: 8px;
+  }
+  .kpi .lbl {
+    font-family: var(--font-mono);
+    font-size: 10.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1px;
+    color: var(--text-dim);
+  }
+
+  /* ============ SECTION CARD ============ */
+  .diagram { display: grid; grid-template-columns: 1fr; gap: 24px; }
+  .section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 26px 30px;
+  }
+  .section--hero {
+    background: color-mix(in oklab, var(--primary) 5%, var(--card));
+    border-color: color-mix(in oklab, var(--border) 45%, var(--primary) 40%);
+    box-shadow: 0 6px 28px color-mix(in oklab, var(--primary) 9%, transparent);
+    padding: 32px 36px;
+  }
+  .section--recessed { background: var(--muted); border-color: transparent; }
+
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1.6px;
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 9px;
+  }
+  .section-label .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+  .section--primary { border-color: var(--primary-dim); }
+  .section--primary .section-label { color: var(--primary); }
+  .section--primary .section-label .dot { background: var(--primary); }
+  .section--secondary { border-color: var(--secondary-dim); }
+  .section--secondary .section-label { color: var(--secondary); }
+  .section--secondary .section-label .dot { background: var(--secondary); }
+  .section--accent { border-color: var(--accent-dim); }
+  .section--accent .section-label { color: var(--accent); }
+  .section--accent .section-label .dot { background: var(--accent); }
+  .section--danger { border-color: var(--danger-dim); }
+  .section--danger .section-label { color: var(--destructive); }
+  .section--danger .section-label .dot { background: var(--destructive); }
+  .section--success { border-color: color-mix(in oklab, var(--success) 18%, transparent); }
+  .section--success .section-label { color: var(--success); }
+  .section--success .section-label .dot { background: var(--success); }
+  .section--warning { border-color: color-mix(in oklab, var(--warning) 18%, transparent); }
+  .section--warning .section-label { color: var(--warning); }
+  .section--warning .section-label .dot { background: var(--warning); }
+
+  /* ============ INNER GRID + CARDS ============ */
+  .inner-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+  .inner-card {
+    background: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .inner-card .title { font-weight: 600; font-size: 15px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+  .inner-card .title .tag {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+    padding: 2px 7px; border-radius: 5px; letter-spacing: 0.4px;
+  }
+  .tag--bib { background: var(--secondary-dim); color: var(--secondary); }
+  .tag--bcb { background: var(--primary-dim); color: var(--primary); }
+  .inner-card .desc { color: var(--text-dim); font-size: 13px; line-height: 1.6; }
+  .inner-card .desc code {
+    font-family: var(--font-mono); font-size: 11.5px;
+    background: var(--code-bg); color: var(--primary);
+    padding: 1px 5px; border-radius: 3px;
+  }
+  .inner-card ul { margin-top: 8px; list-style: none; font-size: 12.5px; color: var(--text-dim); line-height: 1.7; }
+  .inner-card ul li { padding-left: 14px; position: relative; }
+  .inner-card ul li::before { content: '›'; position: absolute; left: 0; color: var(--text-dim); font-weight: 600; }
+
+  /* ============ FLOW ARROW ============ */
+  .flow-arrow {
+    display: flex; justify-content: center; align-items: center; gap: 10px;
+    color: var(--text-dim); font-family: var(--font-mono); font-size: 12px; padding: 2px 0;
+  }
+  .flow-arrow svg { width: 18px; height: 18px; fill: none; stroke: var(--border-bright); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ============ MERMAID SHELL ============ */
+  .diagram-shell { position: relative; }
+  .diagram-shell__hint {
+    font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);
+    margin-bottom: 10px; opacity: 0.75;
+  }
+  .mermaid-wrap {
+    position: relative; background: var(--card);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden; margin-bottom: 0;
+    display: flex; justify-content: center; align-items: center;
+    min-height: 380px;
+  }
+  .mermaid-wrap.is-panning { cursor: grabbing; user-select: none; }
+  .mermaid-wrap { cursor: grab; }
+  .zoom-controls {
+    position: absolute; top: 10px; right: 10px; z-index: 10;
+    display: flex; gap: 2px;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 3px;
+  }
+  .zoom-controls button {
+    width: 30px; height: 30px; border: none; background: transparent;
+    color: var(--text-dim); font-family: var(--font-mono); font-size: 15px;
+    cursor: pointer; border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s;
+  }
+  .zoom-controls button:hover { background: var(--muted); color: var(--text); }
+  .zoom-label { font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); padding: 0 8px; white-space: nowrap; display: flex; align-items: center; }
+  .mermaid-viewport { position: relative; overflow: hidden; width: 100%; height: 100%; min-height: 360px; }
+  .mermaid-canvas { position: absolute; top: 0; left: 0; }
+  .mermaid .nodeLabel { font-family: var(--font-sans) !important; font-size: 15px !important; }
+  .mermaid .edgeLabel { font-family: var(--font-mono) !important; font-size: 12px !important; }
+  .mermaid .node rect, .mermaid .node polygon, .mermaid .node circle { stroke-width: 1.5px !important; }
+  .mermaid .edge-pattern-solid, .mermaid .edge-pattern-dotted { stroke-width: 1.6px !important; }
+
+  /* ============ CALLOUT ============ */
+  .callout {
+    background: var(--muted);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--primary);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 16px 22px;
+    font-size: 14px; line-height: 1.65; color: var(--text-dim);
+  }
+  .callout strong { color: var(--text); font-weight: 600; }
+  .callout code {
+    font-family: var(--font-mono); font-size: 12px;
+    background: var(--code-bg); color: var(--primary);
+    padding: 1px 5px; border-radius: 3px;
+  }
+  .callout--danger { border-left-color: var(--destructive); }
+  .callout--warning { border-left-color: var(--warning); }
+  .callout--success { border-left-color: var(--success); }
+  /* top-level callouts get breathing room above */
+  .container > .callout { margin-top: 26px; }
+
+  /* ============ ASB STRUCTURE DIAGRAM ============ */
+  .asb {
+    font-family: var(--font-mono); font-size: 13px;
+    border: 1px solid var(--border); border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .asb-row {
+    display: grid; grid-template-columns: 32px 1fr auto;
+    align-items: center; gap: 14px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--card);
+  }
+  .asb-row:last-child { border-bottom: none; }
+  .asb-row.opt { background: var(--muted); }
+  .asb-row .idx { color: var(--text-dim); font-size: 11px; text-align: right; }
+  .asb-row .field { color: var(--text); font-weight: 500; }
+  .asb-row .field .sub { display: block; color: var(--text-dim); font-size: 11px; font-weight: 400; margin-top: 2px; }
+  .asb-row .type {
+    font-size: 10.5px; font-weight: 600;
+    padding: 3px 9px; border-radius: 5px; letter-spacing: 0.4px;
+    background: var(--code-bg); color: var(--text-dim);
+  }
+  .asb-row .type.req { background: var(--primary-dim); color: var(--primary); }
+  .asb-row .type.opt { background: var(--secondary-dim); color: var(--secondary); }
+  .asb-caption { font-family: var(--font-sans); font-size: 13px; color: var(--text-dim); margin-top: 12px; line-height: 1.6; }
+
+  /* ============ DATA TABLE ============ */
+  table.data {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+  }
+  table.data th, table.data td {
+    text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--border); vertical-align: top;
+  }
+  table.data th {
+    font-family: var(--font-mono); font-size: 10.5px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim);
+    background: var(--muted);
+  }
+  table.data td code {
+    font-family: var(--font-mono); font-size: 11.5px;
+    background: var(--code-bg); color: var(--primary); padding: 1px 5px; border-radius: 3px;
+  }
+  table.data tbody tr:last-child td { border-bottom: none; }
+  table.data tbody tr:hover { background: color-mix(in oklab, var(--muted) 50%, transparent); }
+  .sev {
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+    padding: 3px 8px; border-radius: 5px; letter-spacing: 0.6px; text-transform: uppercase;
+    display: inline-block;
+  }
+  .sev--high { background: var(--danger-dim); color: var(--destructive); }
+  .sev--med { background: color-mix(in oklab, var(--warning) 16%, transparent); color: var(--warning); }
+  .sev--low { background: color-mix(in oklab, var(--success) 16%, transparent); color: var(--success); }
+  .sev--none { background: var(--muted); color: var(--text-dim); }
+
+  /* ============ PIPELINE ============ */
+  .pipeline { display: flex; gap: 0; align-items: stretch; overflow-x: auto; padding-bottom: 4px; }
+  .pipeline-step {
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; min-width: 150px; flex-shrink: 0; text-align: center;
+  }
+  .pipeline-step .step-num { font-family: var(--font-mono); font-size: 10px; font-weight: 600; margin-bottom: 5px; letter-spacing: 0.5px; }
+  .pipeline-step .step-name { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .pipeline-step .step-detail { font-size: 11px; color: var(--text-dim); line-height: 1.45; }
+  .pipeline-step--primary { border-color: var(--primary-dim); }
+  .pipeline-step--primary .step-num { color: var(--primary); }
+  .pipeline-step--secondary { border-color: var(--secondary-dim); }
+  .pipeline-step--secondary .step-num { color: var(--secondary); }
+  .pipeline-step--danger { border-color: var(--danger-dim); }
+  .pipeline-step--danger .step-num { color: var(--destructive); }
+  .pipeline-arrow { display: flex; align-items: center; padding: 0 4px; color: var(--border-bright); font-size: 18px; flex-shrink: 0; }
+
+  /* ============ NODE LIST ============ */
+  .node-list { list-style: none; font-size: 13px; line-height: 1.8; }
+  .node-list li { padding-left: 16px; position: relative; }
+  .node-list li::before { content: '›'; color: var(--text-dim); font-weight: 600; position: absolute; left: 0; }
+  .node-list code {
+    font-family: var(--font-mono); font-size: 12px;
+    background: var(--code-bg); color: var(--primary); padding: 1px 5px; border-radius: 3px;
+  }
+
+  /* ============ CODE BLOCK ============ */
+  .code-block {
+    background: var(--code-bg); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 20px;
+    font-family: var(--font-mono); font-size: 13px; line-height: 1.7;
+    overflow-x: auto;
+  }
+  .code-block .kw { color: var(--primary); }
+  .code-block .fn { color: var(--accent); }
+  .code-block .str { color: var(--success); }
+  .code-block .cm { color: var(--text-dim); font-style: italic; }
+  .code-block .num { color: var(--warning); }
+
+  /* ============ CSS FLOWCHART (processing order) ============ */
+  .fc {
+    display: flex; flex-direction: column; align-items: center;
+    max-width: 660px; margin: 0 auto;
+  }
+  .fc-node {
+    border: 1.5px solid var(--border-bright);
+    border-radius: 10px; background: var(--card);
+    padding: 12px 20px; text-align: center;
+    min-width: 260px; max-width: 440px;
+  }
+  .fc-node .fc-t { font-weight: 600; color: var(--text); font-size: 13.5px; }
+  .fc-node .fc-s { display: block; color: var(--text-dim); font-size: 12px; margin-top: 4px; line-height: 1.4; }
+  .fc-start { border-color: var(--accent); background: color-mix(in oklab, var(--accent) 10%, var(--card)); }
+  .fc-end { border-color: var(--success); background: color-mix(in oklab, var(--success) 10%, var(--card)); }
+  .fc-dec { border-color: var(--warning); background: color-mix(in oklab, var(--warning) 12%, var(--card)); }
+  .fc-bcb { border-color: var(--primary); background: color-mix(in oklab, var(--primary) 9%, var(--card)); }
+  .fc-bib { border-color: var(--secondary); background: color-mix(in oklab, var(--secondary) 9%, var(--card)); }
+  .fc-skip { border-color: var(--destructive); background: color-mix(in oklab, var(--destructive) 9%, var(--card)); }
+  .fc-conn { width: 2px; height: 22px; background: var(--border-bright); }
+  .fc-branch { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; width: 100%; max-width: 600px; align-items: start; }
+  .fc-col { display: flex; flex-direction: column; align-items: center; }
+  .fc-tag { font-family: var(--font-mono); font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 6px; margin-bottom: 10px; letter-spacing: 0.5px; }
+  .fc-tag-yes { background: color-mix(in oklab, var(--primary) 14%, transparent); color: var(--primary); }
+  .fc-tag-no { background: color-mix(in oklab, var(--secondary) 14%, transparent); color: var(--secondary); }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 820px) {
+    body { padding: 32px 18px 64px; }
+    h1 { font-size: 32px; }
+    h2 { font-size: 24px; }
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .inner-grid, .three-col { grid-template-columns: 1fr; }
+    .section { padding: 20px 18px; }
+    .meta-strip { gap: 14px; }
+    .fc-branch { grid-template-columns: 1fr; gap: 14px; }
+    .fc-node { min-width: 0; max-width: none; width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- ============ HERO ============ -->
+  <div class="eyebrow animate" style="--i:0">RFC 9172 · Standards Track · January 2022</div>
+  <h1 class="animate" style="--i:1">Bundle Protocol <span class="it">Security</span> (BPSec)</h1>
+  <p class="lede animate" style="--i:2">
+    <strong>BPSec</strong> adds data-integrity and confidentiality services to the Bundle Protocol (BPv7),
+    the transport of Delay-Tolerant Networking (DTN). DTN links are intermittent, slow, asymmetric, and
+    noisy &mdash; bundles may sit for <strong>days or years</strong> before delivery, so security must work
+    without live contact with a central authority and must protect data <em>at rest</em>.
+  </p>
+  <div class="meta-strip animate" style="--i:3">
+    <span><b>Authors</b> E. Birrane III, K. McKeever &mdash; JHU/APL</span>
+    <span><b>Depends on</b> RFC 9171 (BPv7), RFC 8949 (CBOR)</span>
+    <span><b>Default contexts</b> RFC 9173</span>
+    <span><b>Predecessor</b> RFC 6257 (Bundle Security Protocol)</span>
+  </div>
+
+  <!-- ============ KPI STRIP ============ -->
+  <div class="kpi-row animate" style="--i:4">
+    <div class="kpi"><div class="n">2</div><div class="lbl">Security services</div></div>
+    <div class="kpi"><div class="n">2</div><div class="lbl">Block types (BIB / BCB)</div></div>
+    <div class="kpi"><div class="n">1</div><div class="lbl">Abstract Security Block</div></div>
+    <div class="kpi"><div class="n">5</div><div class="lbl">Security reason codes</div></div>
+  </div>
+
+  <!-- ============ §1 THE TWO SERVICES ============ -->
+  <h2>The two security services</h2>
+  <p class="section-intro">
+    BPSec defines exactly two services, each delivered as a Bundle extension block. There is deliberately
+    <strong>no hop-by-hop authentication</strong> &mdash; "hop" is ambiguous in a BP overlay and adjacent
+    nodes rarely share compatible security capability.
+  </p>
+  <div class="diagram">
+    <div class="inner-grid">
+      <div class="section section--secondary" style="--i:5">
+        <div class="section-label"><span class="dot"></span> Integrity &mdash; Block Integrity Block</div>
+        <p class="desc" style="font-size:14px;color:var(--text);margin-bottom:10px;">
+          Detects changes to <strong>plaintext</strong> target data from processing errors, the
+          environment, or intentional tampering.
+        </p>
+        <ul class="node-list" style="font-size:13px;">
+          <li>Block type code <code>11</code> (BPv7)</li>
+          <li>Verifiable by <em>any</em> node from security source to destination</li>
+          <li>Context MUST use authentication or error-detection mechanism</li>
+          <li>Never used for ciphertext integrity coming out of a BCB</li>
+        </ul>
+      </div>
+      <div class="section section--primary" style="--i:6">
+        <div class="section-label"><span class="dot"></span> Confidentiality &mdash; Block Confidentiality Block</div>
+        <p class="desc" style="font-size:14px;color:var(--text);margin-bottom:10px;">
+          Makes target data unintelligible to unauthorized nodes by producing ciphertext plus
+          authentication information.
+        </p>
+        <ul class="node-list" style="font-size:13px;">
+          <li>Block type code <code>12</code> (BPv7)</li>
+          <li>Context MUST use AEAD (authenticated encryption with associated data)</li>
+          <li>Encryption is <strong>in-place</strong>: target's block-type-specific data becomes ciphertext</li>
+          <li>Also provides ciphertext integrity-protection mechanisms</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout section section--recessed" style="--i:7">
+      <strong>Block-level granularity, not bundle-level.</strong> A single bundle holds blocks of
+      different kinds &mdash; a primary routing block, payload, and extension annotations &mdash; with
+      different protection needs. BPSec protects each block individually: a payload can be encrypted while a
+      summary extension block is integrity-signed but left readable for waypoint access.
+    </div>
+  </div>
+
+  <!-- ============ §2 BUNDLE STRUCTURE OVERVIEW ============ -->
+  <h2>Security blocks live inside the bundle</h2>
+  <p class="section-intro">
+    Security operations are BP extension blocks that travel with the bundle. The diagram below is the
+    RFC's <strong>Example 1</strong>: one BIB signs three targets, one BCB encrypts one extension block.
+    A single BIB covers <code>B1, B5, B6</code> because they share the same source, context, and parameters.
+  </p>
+
+  <div class="diagram-shell animate" style="--i:8" style="margin-bottom:0">
+    <p class="diagram-shell__hint">Ctrl/Cmd + wheel to zoom &middot; drag to pan &middot; double-click to fit &middot; ⛶ opens full size</p>
+    <div class="mermaid-wrap">
+      <div class="zoom-controls">
+        <button type="button" data-action="zoom-in" title="Zoom in">+</button>
+        <button type="button" data-action="zoom-out" title="Zoom out">&minus;</button>
+        <button type="button" data-action="zoom-fit" title="Smart fit">&#8634;</button>
+        <button type="button" data-action="zoom-expand" title="Open full size">&#x26F6;</button>
+        <span class="zoom-label">Loading...</span>
+      </div>
+      <div class="mermaid-viewport">
+        <div class="mermaid mermaid-canvas"></div>
+      </div>
+    </div>
+    <script type="text/plain" class="diagram-source">
+      flowchart TD
+        subgraph bundle["Bundle (RFC 9171 BPv7)"]
+          direction TB
+          B1["B1 — Primary block<br/><b>routing</b>"]
+          B2["B2 — BIB · type 11<br/><i>integrity source</i>"]
+          B3["B3 — BCB · type 12<br/><i>confidentiality source</i>"]
+          B4["B4 — Extension<br/><i>(ciphertext)</i>"]
+          B5["B5 — Extension<br/><i>plaintext</i>"]
+          B6["B6 — Payload<br/><i>application data</i>"]
+        end
+        B2 -.->|"signs"| B1
+        B2 -.->|"signs"| B5
+        B2 -.->|"signs"| B6
+        B3 ==>|"encrypts"| B4
+        classDef bib fill:#e8f5f4,stroke:#0d9488,stroke-width:1.6px,color:#1b1830
+        classDef bcb fill:#f1ecfd,stroke:#7c3aed,stroke-width:1.6px,color:#1b1830
+        classDef blk fill:#ffffff,stroke:#c7c9d4,color:#1b1830
+        classDef enc fill:#efe9fa,stroke:#7c3aed,stroke-dasharray:5 4,color:#1b1830
+        class B2 bib
+        class B3 bcb
+        class B1,B5,B6 blk
+        class B4 enc
+    </script>
+  </div>
+  <div class="legend animate" style="--i:9;display:flex;gap:22px;flex-wrap:wrap;margin:18px 0 0;font-family:var(--font-mono);font-size:11px;color:var(--text-dim);">
+    <span style="display:flex;align-items:center;gap:7px"><span style="width:14px;height:14px;border-radius:3px;background:color-mix(in oklab,var(--secondary) 14%,var(--card));border:1.5px solid var(--secondary)"></span>BIB (integrity)</span>
+    <span style="display:flex;align-items:center;gap:7px"><span style="width:14px;height:14px;border-radius:3px;background:color-mix(in oklab,var(--primary) 14%,var(--card));border:1.5px solid var(--primary)"></span>BCB (confidentiality)</span>
+    <span style="display:flex;align-items:center;gap:7px"><span style="width:14px;height:14px;border-radius:3px;background:color-mix(in oklab,var(--primary) 9%,var(--muted));border:1.5px dashed var(--primary)"></span>encrypted block</span>
+    <span style="display:flex;align-items:center;gap:7px"><span style="width:24px;border-top:1.6px dashed var(--secondary);display:inline-block"></span>integrity coverage</span>
+    <span style="display:flex;align-items:center;gap:7px"><span style="width:24px;border-top:1.6px solid var(--primary);display:inline-block"></span>encryption</span>
+  </div>
+
+  <!-- ============ §3 ASB STRUCTURE ============ -->
+  <h2>The Abstract Security Block (ASB)</h2>
+  <p class="section-intro">
+    BIB and BCB share one structure &mdash; the ASB &mdash; encoded in CBOR as the block-type-specific data.
+    It is never instantiated directly; each block type wraps it. Targets are identified by block number.
+  </p>
+  <div class="asb animate" style="--i:10">
+    <div class="asb-row"><span class="idx">1</span><span class="field">Security Targets<span class="sub">block numbers this operation protects &mdash; ordered, no duplicates</span></span><span class="type req">CBOR array&lt;uint&gt;</span></div>
+    <div class="asb-row"><span class="idx">2</span><span class="field">Security Context Id<span class="sub">IANA-registered context implementing the algorithms</span></span><span class="type req">uint</span></div>
+    <div class="asb-row"><span class="idx">3</span><span class="field">Security Context Flags<span class="sub">bit 0 (0x01) = "parameters present"; higher bits reserved &rarr; 0</span></span><span class="type req">uint (bitfield)</span></div>
+    <div class="asb-row"><span class="idx">4</span><span class="field">Security Source<span class="sub">EID of the node that added the operation</span></span><span class="type req">CBOR array (EID)</span></div>
+    <div class="asb-row opt"><span class="idx">5</span><span class="field">Security Context Parameters<span class="sub">array of (Id, Value) tuples &mdash; per-context, not globally unique</span></span><span class="type opt">optional</span></div>
+    <div class="asb-row"><span class="idx">6</span><span class="field">Security Results<span class="sub">one entry per target, each an array of (Result Id, Value) tuples</span></span><span class="type req">CBOR array&lt;array&gt;</span></div>
+  </div>
+  <p class="asb-caption animate" style="--i:11">
+    A single block may carry <strong>multiple operations</strong> when every target shares the same service type,
+    context parameters, and source &mdash; common info is stated once, target-specific results stay individual.
+    <strong>Uniqueness rule:</strong> a given service on a given target may appear only once per bundle.
+    <code>OP(bib-integrity, payload)</code> twice is forbidden; the same service on two different targets is fine.
+  </p>
+
+  <!-- ============ CANONICAL FORMS ============ -->
+  <h2>Canonical forms: what the cipher suite actually sees</h2>
+  <p class="section-intro">
+    Integrity and confidentiality only work if the security source, every verifier, and the acceptor all
+    feed the <em>identical</em> byte sequence to the cipher suite. BPSec guarantees this with
+    <strong>Deterministically Encoded CBOR</strong> (RFC 8949) canonical forms &mdash; the canonical encoding
+    includes a field's own CBOR encoding but <strong>not</strong> any encapsulating CBOR framing around it.
+  </p>
+  <div class="inner-grid animate" style="--i:25">
+    <div class="section section--primary">
+      <div class="section-label"><span class="dot"></span> The rules</div>
+      <ul class="node-list" style="font-size:13.5px;">
+        <li>Primary block canonicalized per RFC 9171 + Deterministic CBOR</li>
+        <li>Non-primary blocks canonicalized per RFC 9171 + Deterministic CBOR</li>
+        <li>Canonical form carries each field's CBOR encoding, <strong>not</strong> the framing around it</li>
+        <li>Reserved / unassigned processing-control flags <strong>must be set to 0</strong> in canonical form</li>
+        <li>A security context MAY define its own canonicalization &mdash; it takes precedence</li>
+      </ul>
+    </div>
+    <div class="section">
+      <div class="section-label"><span class="dot" style="background:var(--text-dim)"></span> Encrypt vs. integrity-protect</div>
+      <table class="data">
+        <thead><tr><th>Block field</th><th>Encrypt?</th><th>Integrity (AAD)</th></tr></thead>
+        <tbody>
+          <tr><td>Primary block fields</td><td><span class="sev sev--none">No</span></td><td><span class="sev sev--low">May</span></td></tr>
+          <tr><td>Block header (type, number, flags, CRC type)</td><td><span class="sev sev--none">No</span></td><td><span class="sev sev--low">May</span></td></tr>
+          <tr><td>Block-type-specific data</td><td><span class="sev sev--med">Yes &mdash; only this</span></td><td><span class="sev sev--low">Yes</span></td></tr>
+          <tr><td>CRC field</td><td><span class="sev sev--none">No</span></td><td><span class="sev sev--none">Computed after</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="callout animate" style="--i:26">
+    <strong>One field is special.</strong> Only the <code>block-type-specific data</code> field may be
+    encrypted &mdash; everything else must stay readable for routing and processing, but <em>may</em> be
+    bound into the integrity calculation as Additional Authenticated Data (AAD). That is exactly how a BCB
+    protects the ciphertext's header fields without encrypting them.
+  </div>
+
+  <!-- ============ §4 PROCESSING ORDER ============ -->
+  <h2>Processing order: confidentiality first, then integrity</h2>
+  <p class="section-intro">
+    When BIBs and BCBs share a target, processing must be deterministic across every node. The rule is fixed:
+    <strong>BCBs are evaluated before BIBs</strong>, and a BIB is never checked against ciphertext.
+  </p>
+
+  <div class="fc animate" style="--i:12">
+    <div class="fc-node fc-start"><span class="fc-t">Bundle received from another node</span></div>
+    <div class="fc-conn"></div>
+    <div class="fc-node fc-dec"><span class="fc-t">Any BCB where this node is security acceptor?</span></div>
+    <div class="fc-conn"></div>
+    <div class="fc-branch">
+      <div class="fc-col">
+        <span class="fc-tag fc-tag-yes">YES</span>
+        <div class="fc-node fc-bcb"><span class="fc-t">Process each BCB op</span><span class="fc-s">decrypt in-place; replace ciphertext with plaintext</span></div>
+        <div class="fc-conn"></div>
+        <div class="fc-node fc-bcb"><span class="fc-t">Remove finished op info</span><span class="fc-s">drop BCB when all ops done</span></div>
+      </div>
+      <div class="fc-col">
+        <span class="fc-tag fc-tag-no">NO</span>
+        <div class="fc-node"><span class="fc-t">No BCB to terminate</span><span class="fc-s">proceed to BIB check</span></div>
+      </div>
+    </div>
+    <div class="fc-conn"></div>
+    <div class="fc-node fc-dec"><span class="fc-t">BIB targets the same block as a remaining BCB?</span></div>
+    <div class="fc-conn"></div>
+    <div class="fc-branch">
+      <div class="fc-col">
+        <span class="fc-tag fc-tag-yes">YES &mdash; SKIP</span>
+        <div class="fc-node fc-skip"><span class="fc-t">MUST NOT verify</span><span class="fc-s">target is ciphertext</span></div>
+      </div>
+      <div class="fc-col">
+        <span class="fc-tag fc-tag-no">NO</span>
+        <div class="fc-node fc-bib"><span class="fc-t">Verify BIB integrity</span><span class="fc-s">acceptor processes; non-acceptor verifies</span></div>
+        <div class="fc-conn"></div>
+        <div class="fc-node fc-bib"><span class="fc-t">Remove finished op info</span><span class="fc-s">drop BIB when all ops done</span></div>
+      </div>
+    </div>
+    <div class="fc-conn"></div>
+    <div class="fc-node fc-end"><span class="fc-t">Forward / deliver bundle</span></div>
+  </div>
+
+  <div class="inner-grid animate" style="--i:13;margin-top:24px;">
+    <div class="callout callout--danger">
+      <strong>Encrypted payload that can't authenticate &rarr; discard.</strong> If a BCB's ciphertext
+      cannot be authenticated at the destination, the bundle <strong>MUST</strong> be discarded. A
+      non-payload target that can't be decrypted means the target and its security blocks are discarded.
+    </div>
+    <div class="callout callout--warning">
+      <strong>Required service absent &rarr; policy decides.</strong> If expected confidentiality or
+      integrity is missing, the node acts per policy &mdash; recommended action is to remove the affected
+      target; the bundle may be discarded if that target is the payload or primary block.
+    </div>
+  </div>
+
+  <!-- ============ ROLES: SOURCE / ACCEPTOR / VERIFIER ============ -->
+  <h2>Three roles, not one: source, acceptor, verifier</h2>
+  <p class="section-intro">
+    BPSec splits "who touches a security operation" into three distinct roles. The flow above treats the
+    <strong>acceptor</strong> as the terminator, but a node can also be a mere <strong>verifier</strong> &mdash;
+    it checks integrity <em>without</em> removing the operation, so the protection survives onward to the
+    real acceptor down the path.
+  </p>
+  <div class="section animate" style="--i:27">
+    <table class="data">
+      <thead><tr><th>Role</th><th>What it does</th><th>Removes the op?</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Security Source</strong></td>
+          <td>BP node that <em>adds</em> a security operation to the bundle. Recorded in the ASB's Security Source field.</td>
+          <td><span class="sev sev--none">n/a &mdash; creates it</span></td>
+        </tr>
+        <tr>
+          <td><strong>Security Acceptor</strong></td>
+          <td>Processes and <em>terminates</em> the operation (e.g. destination decrypts a BCB). Removes op-specific info; drops the block once all its ops are done.</td>
+          <td><span class="sev sev--med">Yes</span></td>
+        </tr>
+        <tr>
+          <td><strong>Security Verifier</strong></td>
+          <td>Non-acceptor that dispositions / checks an operation &mdash; e.g. verifies a BIB to avoid forwarding corrupt data.</td>
+          <td><span class="sev sev--low">No (if it passes)</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout callout--success animate" style="--i:28">
+    <strong>The verifier's non-removal rule.</strong> If a verifier's integrity check <em>passes</em>, it
+    <strong>MUST NOT</strong> remove the operation before forwarding &mdash; the protection must live on to
+    reach the acceptor. Only a failed check triggers policy-driven action. That is what lets integrity
+    coverage span multiple hops without each intermediate hop stripping it.
+  </div>
+
+  <!-- ============ §5 ORDERING CONSTRAINTS ============ -->
+  <h2>Block interactions &amp; ordering constraints</h2>
+  <p class="section-intro">
+    BIB and BCB can coexist, but their interactions are tightly constrained to keep the security model sound.
+    The headline rule: <strong>for a given target, BIBs are added before BCBs.</strong>
+  </p>
+  <div class="three-col animate" style="--i:14">
+    <div class="section section--secondary" style="padding:18px 20px;">
+      <div class="section-label"><span class="dot"></span> Allowed</div>
+      <ul class="node-list" style="font-size:12.5px;">
+        <li>Same service, different targets</li>
+        <li>Different services, same target (BIB + BCB)</li>
+        <li>BCB targeting a BIB that shares its target</li>
+        <li>Waypoint removing then re-adding a block</li>
+      </ul>
+    </div>
+    <div class="section section--danger" style="padding:18px 20px;">
+      <div class="section-label"><span class="dot"></span> Forbidden</div>
+      <ul class="node-list" style="font-size:12.5px;">
+        <li>BIB targeting a BCB</li>
+        <li>BCB targeting another BCB</li>
+        <li>BCB targeting the primary block</li>
+        <li>BCB targeting a BIB with different targets</li>
+        <li>Duplicate op on the same target</li>
+      </ul>
+    </div>
+    <div class="section section--warning" style="padding:18px 20px;">
+      <div class="section-label"><span class="dot"></span> Must hold</div>
+      <ul class="node-list" style="font-size:12.5px;">
+        <li>BIB added <em>before</em> BCB for the same target</li>
+        <li>Adding a BCB over all a BIB's targets &rarr; encrypt that BIB too</li>
+        <li>Adding a BCB over <em>some</em> BIB targets &rarr; split the BIB</li>
+        <li>BCB over payload &rarr; set "replicate in every fragment"</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout animate" style="--i:15;margin-top:18px;">
+    <strong>Shortcut for source-side integrity + confidentiality.</strong> If you need both at the source,
+    don't stack a separate BIB and BCB &mdash; use a single <strong>BCB whose context generates integrity
+    results</strong>. This sidesteps the split/encrypt dance entirely.
+  </div>
+
+  <!-- ============ §6 WAYPOINT TRANSFORMATION ============ -->
+  <h2>What a waypoint can do: Example 2</h2>
+  <p class="section-intro">
+    Bundles can accrue security from <strong>multiple sources</strong> as they travel. Here a waypoint
+    receives Example 1's bundle and wants to encrypt <code>B5</code> and <code>B6</code> &mdash; but the
+    existing BIB <code>B2</code> also signs <code>B1</code> (the primary block), so it can't be wholly
+    encrypted.
+  </p>
+  <div class="section section--accent animate" style="--i:16">
+    <div class="section-label"><span class="dot"></span> Waypoint transformation</div>
+    <div class="pipeline">
+      <div class="pipeline-step pipeline-step--secondary">
+        <div class="step-num">BEFORE</div>
+        <div class="step-name">B2 signs B1,B5,B6</div>
+        <div class="step-detail">BIB covers primary<br/>+ two plaintext blocks</div>
+      </div>
+      <div class="pipeline-arrow">&rarr;</div>
+      <div class="pipeline-step pipeline-step--primary">
+        <div class="step-num">STEP 1</div>
+        <div class="step-name">Split the BIB</div>
+        <div class="step-detail">Move B5/B6 results into<br/>new BIB <b>B7</b>; B2 keeps B1</div>
+      </div>
+      <div class="pipeline-arrow">&rarr;</div>
+      <div class="pipeline-step pipeline-step--primary">
+        <div class="step-num">STEP 2</div>
+        <div class="step-name">New BCB B8</div>
+        <div class="step-detail">Encrypt B5, B6,<br/><b>and B7</b> together</div>
+      </div>
+      <div class="pipeline-arrow">&rarr;</div>
+      <div class="pipeline-step pipeline-step--danger">
+        <div class="step-num">AFTER</div>
+        <div class="step-name">B1 still signed</div>
+        <div class="step-detail">B2 stays as-is (plaintext,<br/>unchanged integrity);<br/>B4 still under BCB B3</div>
+      </div>
+    </div>
+    <p class="desc" style="font-size:13px;color:var(--text-dim);margin-top:14px;line-height:1.6;">
+      The BIB covering the primary block cannot be encrypted (the primary block must stay readable for
+      routing), so its results are split out and the <em>new</em> BIB is folded into the new BCB's target list.
+    </p>
+  </div>
+
+  <!-- ============ §7 THREAT MODEL ============ -->
+  <h2>Threat model: "Olive" the on-path attacker</h2>
+  <p class="section-intro">
+    BPSec scopes its threat model to <strong>on-path attackers (OPAs)</strong> per RFC 3552. "Olive" sits
+    between source Alice and destination Bob and can receive, examine, modify, forward, and generate
+    bundles. Three privilege tiers define what BPSec can and cannot stop.
+  </p>
+  <div class="section section--danger animate" style="--i:17;margin-bottom:20px;">
+    <div class="section-label"><span class="dot"></span> The three Olive classes</div>
+    <table class="data">
+      <thead><tr><th>Class</th><th>Holds</th><th>What BPSec can do</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Unprivileged node</strong></td>
+          <td>Only public cryptographic material</td>
+          <td><span class="sev sev--low">Low risk</span> &mdash; confidentiality and integrity hold against this attacker.</td>
+        </tr>
+        <tr>
+          <td><strong>Legitimate node</strong></td>
+          <td>Provisioned material <code>K_M</code> + public</td>
+          <td><span class="sev sev--med">Medium risk</span> &mdash; can <em>replace</em> Alice's BIB with its own signature. Mitigated by IND-CCA2 BCB covering BIB + data.</td>
+        </tr>
+        <tr>
+          <td><strong>Privileged node</strong></td>
+          <td><code>K_M</code>, <code>K_A</code>, and/or <code>K_B</code></td>
+          <td><span class="sev sev--high">High risk</span> &mdash; tantamount to compromise; <strong>BPSec cannot detect or remove</strong> such an attacker.</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="three-col" style="margin-top:22px;">
+      <div class="inner-card">
+        <div class="title">Unprivileged &mdash; the outsider</div>
+        <div class="desc">Olive holds <em>no</em> keys. She can observe bundles in flight but cannot decrypt BCB-protected content, forge a valid BIB signature, or authenticate as a network member. Both confidentiality and integrity fully hold against her. Her only remaining lever is <strong>traffic analysis</strong> &mdash; who talks to whom, when, and how much &mdash; which no encryption stops.</div>
+      </div>
+      <div class="inner-card">
+        <div class="title">Legitimate &mdash; the insider</div>
+        <div class="desc">Olive is a real network member with shared keying material <code>K_M</code>, so she can produce and verify valid operations. The core danger is <strong>signature substitution</strong>: she strips Alice's BIB and re-signs the block with her own valid key, so a forged bundle looks legitimate. She still can't read BCB-encrypted data unless she holds that specific key. <strong>Fix:</strong> an IND-CCA2 BCB that authenticates the BIB <em>and</em> the data together &mdash; any swap breaks the AEAD tag.</div>
+      </div>
+      <div class="inner-card">
+        <div class="title">Privileged &mdash; the compromise</div>
+        <div class="desc">Olive holds an endpoint's own material &mdash; Alice's <code>K_A</code> or Bob's <code>K_B</code>. She can forge Alice's signatures, impersonate her, and decrypt anything bound for Bob. This is key <strong>compromise</strong>, not a protocol flaw: no cryptography can defend once the endpoint's own keys are stolen. The defense is operational &mdash; key rotation, HSMs, access control &mdash; outside BPSec's reach.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section animate" style="--i:18">
+    <div class="section-label"><span class="dot" style="background:var(--text-dim)"></span> Attack behaviors &rarr; BPSec mitigations</div>
+    <table class="data">
+      <thead><tr><th>Attack</th><th>What Olive does</th><th>Mitigation</th><th>Residual</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>Eavesdropping</strong></td>
+          <td>Reads passing bundles; may retain them for <em>years</em> to cryptanalyze later</td>
+          <td>BCB encryption. Long-lived bundles raise the cryptanalysis budget.</td>
+          <td><span class="sev sev--med">Traffic analysis always possible</span></td>
+        </tr>
+        <tr>
+          <td><strong>Modification</strong></td>
+          <td>Alters data, adds/removes/replaces blocks or signatures</td>
+          <td>BIB + BCB integrity. Block removal needs out-of-band policy describing expected ops.</td>
+          <td><span class="sev sev--med">Signature substitution by legitimate Olive</span></td>
+        </tr>
+        <tr>
+          <td><strong>Topology</strong></td>
+          <td>Influences routing decisions</td>
+          <td>BIB over primary block, encapsulation, or strategic primary-block manipulation.</td>
+          <td><span class="sev sev--low">Routing policy is out of scope</span></td>
+        </tr>
+        <tr>
+          <td><strong>Message injection</strong></td>
+          <td>Replays old bundles or injects new ones</td>
+          <td>BCB w/ replay-resistant crypto; nonces, timestamps, Bundle Age block under BIB/BCB.</td>
+          <td><span class="sev sev--low">Application must add uniqueness</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout callout--danger animate" style="--i:19;margin-top:18px;">
+    <strong>Sharing one key set across all nodes collapses the tiers.</strong> If every node holds the same
+    material, "legitimate" equals "privileged" &mdash; the medium-risk tier disappears and any node can forge
+    any signature. BPSec explicitly recommends <em>against</em> provisioning this way.
+  </div>
+
+  <!-- ============ §8 SECURITY CONTEXTS ============ -->
+  <h2>Security contexts: the pluggable crypto layer</h2>
+  <p class="section-intro">
+    A <strong>security context</strong> is the bundle of algorithms, parameters, and results that actually
+    implements a service. BPSec defines the framing; the context does the cryptography. No single context
+    suits every network &mdash; resource-constrained vs. well-resourced differ &mdash; so contexts are
+    registered and user-configurable. Mandatory-to-implement defaults live in <strong>RFC 9173</strong>.
+  </p>
+  <div class="inner-grid animate" style="--i:20">
+    <div class="section section--primary">
+      <div class="section-label"><span class="dot"></span> What a context must define</div>
+      <ul class="node-list" style="font-size:13.5px;">
+        <li>Supported services (BIB, BCB, or both) per service</li>
+        <li>Parameter Ids, types, and encoding</li>
+        <li>Result Ids, types, and encoding</li>
+        <li>Own canonicalization if defaults don't suffice</li>
+        <li>Ciphertext-size statement (may exceed plaintext)</li>
+        <li>Block-header fields included in integrity (AAD)</li>
+      </ul>
+    </div>
+    <div class="section section--secondary">
+      <div class="section-label"><span class="dot"></span> DTN-specific design pressures</div>
+      <ul class="node-list" style="font-size:13.5px;">
+        <li><strong>Data lifetime</strong> &mdash; bundles persist for years; algorithms must stay strong that long</li>
+        <li><strong>One-way traffic</strong> &mdash; two-way handshakes may be impossible, limiting Diffie-Hellman</li>
+        <li><strong>Opportunistic access</strong> &mdash; key-distribution centers are often impractical</li>
+      </ul>
+    </div>
+  </div>
+  <div class="section section--recessed animate" style="--i:21;margin-top:16px;">
+    <div class="section-label"><span class="dot" style="background:var(--text-dim)"></span> Three example context types (RFC Table 1)</div>
+    <div class="three-col">
+      <div class="inner-card">
+        <div class="title">Key Exchange AES</div>
+        <div class="desc">Parameters carry an encrypted key + IV &mdash; the session key rides inside the bundle.</div>
+      </div>
+      <div class="inner-card">
+        <div class="title">Pre-Shared Key AES</div>
+        <div class="desc">Only the IV travels as a parameter; the key is pre-provisioned out of band.</div>
+      </div>
+      <div class="inner-card">
+        <div class="title">Out-of-Band AES</div>
+        <div class="desc">No parameters at all &mdash; key and IV are entirely configured out of band.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ OTHER SECURITY BLOCKS (OSBs) ============ -->
+  <h2>Other Security Blocks: the extension point</h2>
+  <p class="section-intro">
+    BIB and BCB are not the end of the story. BPSec permits <strong>Other Security Blocks (OSBs)</strong>
+    &mdash; new block types that coexist with BIB/BCB &mdash; provided they follow rules that keep the
+    deterministic processing model intact. This is how BPSec grows without a new base spec.
+  </p>
+  <div class="section section--accent animate" style="--i:29">
+    <div class="section-label"><span class="dot"></span> OSB coexistence requirements</div>
+    <div class="inner-grid">
+      <ul class="node-list" style="font-size:13.5px;">
+        <li>MUST NOT reuse BIB/BCB type codes or enumerations</li>
+        <li>MUST state whether they can target &mdash; or be targeted by &mdash; BIB/BCB</li>
+        <li>MUST give a deterministic processing order that does not alter BIB/BCB ordering</li>
+      </ul>
+      <ul class="node-list" style="font-size:13.5px;">
+        <li>MUST provide own canonicalization if defaults are insufficient</li>
+        <li>MUST NOT conflict with BPSec behavior requirements</li>
+        <li>MUST specify their fragmentation behavior</li>
+      </ul>
+    </div>
+  </div>
+  <div class="callout animate" style="--i:30">
+    <strong>Why the strict rules.</strong> Determinism is BPSec's highest priority &mdash; every node must
+    process a bundle's security blocks in the same order. An OSB that injected its own ordering, or reused
+    a type code, would break that invariant. These requirements let the protocol extend without undoing the
+    guarantee.
+  </div>
+
+  <!-- ============ §9 REASON CODES ============ -->
+  <h2>Security reason codes</h2>
+  <p class="section-intro">
+    Five BPv7 status-report reason codes (values 12&ndash;16) let nodes signal security outcomes. Policy
+    should govern <em>when</em> these are sent &mdash; e.g. only to a verified report-to address, possibly
+    encrypted, to avoid leaking operational detail.
+  </p>
+  <div class="section animate" style="--i:22">
+    <table class="data">
+      <thead><tr><th>Code</th><th>Name</th><th>Meaning</th></tr></thead>
+      <tbody>
+        <tr><td><code>12</code></td><td><strong>Missing security operation</strong></td><td>A required operation was absent from the bundle.</td></tr>
+        <tr><td><code>13</code></td><td><strong>Unknown security operation</strong></td><td>Operation not understood &mdash; e.g. unrecognized context Id.</td></tr>
+        <tr><td><code>14</code></td><td><strong>Unexpected security operation</strong></td><td>Node is neither verifier nor acceptor &mdash; not necessarily an error.</td></tr>
+        <tr><td><code>15</code></td><td><strong>Failed security operation</strong></td><td>Processing failed for reasons other than misconfiguration.</td></tr>
+        <tr><td><code>16</code></td><td><strong>Conflicting security operation</strong></td><td>BPSec protocol violation from non-conformant operations.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ============ §10 SCOPE / NON-GOALS ============ -->
+  <h2>What BPSec deliberately does not do</h2>
+  <div class="inner-grid animate" style="--i:23">
+    <div class="callout callout--warning">
+      <strong>Out of scope.</strong> DTN infrastructure security, threats from sharing compute resources
+      with BPSec software, fitness of specific cryptographic methods, security-policy implementation, and
+      combination with other protocols. <strong>Key management</strong> is assumed to be handled entirely
+      separately &mdash; BPSec defines no key strategy.
+    </div>
+    <div class="callout callout--success">
+      <strong>Fragmentation.</strong> Only payload blocks can be fragmented; security blocks cannot.
+      BIBs/BCBs MUST NOT be added to bundles carrying the "fragment" flag, and confidentiality should be
+      applied <em>before</em> any fragmentation.
+    </div>
+  </div>
+
+  <p class="animate" style="--i:24;text-align:center;margin-top:64px;font-family:var(--font-mono);font-size:11px;color:var(--text-dim);letter-spacing:0.5px;">
+    RFC 9172 &middot; Bundle Protocol Security (BPSec) &middot; visual explainer &middot; source: rfc-editor.org/rfc/rfc9172.txt
+  </p>
+
+</div>
+
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  import elkLayouts from 'https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk/dist/mermaid-layout-elk.esm.min.mjs';
+
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+
+  mermaid.registerLayoutLoaders(elkLayouts);
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'base',
+    look: 'classic',
+    layout: 'elk',
+    themeVariables: {
+      fontFamily: "'Inter', system-ui, sans-serif",
+      fontSize: '15px',
+      primaryColor: isDark ? '#241f33' : '#f6f3fe',
+      primaryBorderColor: isDark ? '#c4b5fd' : '#7c3aed',
+      primaryTextColor: isDark ? '#e9e5f7' : '#1b1830',
+      secondaryColor: isDark ? '#20342f' : '#e7f6f5',
+      secondaryBorderColor: isDark ? '#5eead4' : '#0d9488',
+      lineColor: isDark ? '#94a3b8' : '#4b5563',
+      noteBkgColor: isDark ? '#26263a' : '#fef9e7',
+      noteTextColor: isDark ? '#e9e5f7' : '#1b1830',
+      noteBorderColor: isDark ? '#fbbf24' : '#d97706',
+    }
+  });
+
+  const config = {
+    fitPadding: 30, minHeight: 360, maxHeightPx: 900, maxHeightVh: 0.82,
+    maxInitialZoom: 1.8, minZoom: 0.1, maxZoom: 6, zoomStep: 0.14, readabilityFloor: 0.55
+  };
+  const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+  let activeDrag = null;
+  addEventListener('mousemove', (e) => activeDrag?.onMove(e));
+  addEventListener('mouseup', () => { activeDrag?.onEnd(); activeDrag = null; });
+
+  function initDiagram(shell) {
+    const wrap = shell.querySelector('.mermaid-wrap');
+    const viewport = shell.querySelector('.mermaid-viewport');
+    const canvas = shell.querySelector('.mermaid-canvas');
+    const source = shell.querySelector('.diagram-source');
+    const label = shell.querySelector('.zoom-label');
+    if (!wrap || !viewport || !canvas || !source || !label) return;
+
+    let zoom = 1, fitMode = 'contain', panX = 0, panY = 0, svgW = 0, svgH = 0;
+    let sx = 0, sy = 0, spx = 0, spy = 0, touchDist = 0, touchCx = 0, touchCy = 0;
+
+    function constrainPan() {
+      const vpW = viewport.clientWidth, vpH = viewport.clientHeight, pad = config.fitPadding;
+      const rW = svgW * zoom, rH = svgH * zoom;
+      panX = (rW + pad*2 <= vpW) ? (vpW - rW)/2 : clamp(panX, vpW - rW - pad, pad);
+      panY = (rH + pad*2 <= vpH) ? (vpH - rH)/2 : clamp(panY, vpH - rH - pad, pad);
+    }
+    function applyTransform() {
+      const svg = canvas.querySelector('svg');
+      if (!svg || !svgW) return;
+      constrainPan();
+      svg.style.width = (svgW*zoom)+'px'; svg.style.height = (svgH*zoom)+'px';
+      canvas.style.transform = `translate(${panX}px, ${panY}px)`;
+      label.textContent = Math.round(zoom*100)+'% — '+fitMode;
+    }
+    function canPan() {
+      const rW = svgW*zoom, rH = svgH*zoom;
+      return rW + config.fitPadding*2 > viewport.clientWidth || rH + config.fitPadding*2 > viewport.clientHeight;
+    }
+    function computeSmartFit() {
+      const vpW = viewport.clientWidth, vpH = viewport.clientHeight;
+      const aW = Math.max(80, vpW - config.fitPadding*2), aH = Math.max(80, vpH - config.fitPadding*2);
+      const contain = Math.min(aW/svgW, aH/svgH);
+      let z = contain, mode = 'contain';
+      if (contain < config.readabilityFloor) {
+        const chartR = svgH/svgW, vpR = vpH/Math.max(vpW,1);
+        if (chartR >= vpR) { z = aW/svgW; mode = 'width-priority'; }
+        else { z = aH/svgH; mode = 'height-priority'; }
+      }
+      return { zoom: clamp(z, config.minZoom, config.maxInitialZoom), mode };
+    }
+    function fitDiagram() {
+      if (!svgW) return;
+      const fit = computeSmartFit(); zoom = fit.zoom; fitMode = fit.mode;
+      panX = (viewport.clientWidth - svgW*zoom)/2; panY = (viewport.clientHeight - svgH*zoom)/2;
+      applyTransform();
+    }
+    function zoomAround(factor, cx, cy) {
+      const next = clamp(zoom*factor, config.minZoom, config.maxZoom), ratio = next/zoom;
+      panX = cx - ratio*(cx - panX); panY = cy - ratio*(cy - panY); zoom = next; fitMode = 'custom';
+      applyTransform();
+    }
+    function readSvgSize(svg) {
+      let w = svg.viewBox?.baseVal?.width || 0, h = svg.viewBox?.baseVal?.height || 0;
+      if (!w) { w = parseFloat(svg.getAttribute('width'))||0; h = parseFloat(svg.getAttribute('height'))||0; }
+      if (!w) { const b = svg.getBBox(); w = b.width; h = b.height; }
+      if (!w) { const r = svg.getBoundingClientRect(); w = r.width||1000; h = r.height||700; }
+      if (!svg.getAttribute('viewBox')) svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+      return { w, h };
+    }
+    function setAdaptiveHeight() {
+      if (!svgW) return;
+      const usableW = Math.max(280, wrap.getBoundingClientRect().width - 2);
+      const idealH = (svgH/svgW)*usableW + config.fitPadding*2;
+      const maxVp = Math.floor(innerHeight * config.maxHeightVh);
+      const hardMax = Math.min(config.maxHeightPx, Math.max(config.minHeight+40, maxVp));
+      wrap.style.height = Math.round(clamp(idealH, config.minHeight, hardMax))+'px';
+    }
+    function openInNewTab() {
+      const svg = canvas.querySelector('svg'); if (!svg) return;
+      const clone = svg.cloneNode(true); clone.style.width=''; clone.style.height='';
+      const bg = isDark ? 'oklch(0.15 0.02 260)' : 'oklch(0.97 0.005 260)';
+      const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Diagram</title><style>body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:${bg};padding:40px;box-sizing:border-box}svg{max-width:100%;max-height:90vh;height:auto}</style></head><body>${clone.outerHTML}</body></html>`;
+      open(URL.createObjectURL(new Blob([html], {type:'text/html'})), '_blank');
+    }
+    async function render() {
+      try {
+        const code = source.textContent.trim();
+        const id = 'd'+Date.now()+Math.random().toString(36).slice(2,8);
+        const { svg } = await mermaid.render(id, code);
+        const parsed = new DOMParser().parseFromString(svg, 'text/html').body.querySelector('svg');
+        if (!parsed) { label.textContent='Error: No SVG'; return; }
+        canvas.replaceChildren(document.adoptNode(parsed));
+        const svgNode = canvas.querySelector('svg'); if (!svgNode) return;
+        const size = readSvgSize(svgNode); svgW = size.w; svgH = size.h;
+        svgNode.removeAttribute('width'); svgNode.removeAttribute('height');
+        svgNode.style.maxWidth='none'; svgNode.style.display='block';
+        setAdaptiveHeight(); fitDiagram();
+      } catch (err) { console.error('Mermaid render failed', err); label.textContent='Error: '+(err.message||'render failed'); }
+    }
+    const actions = {
+      'zoom-in': () => zoomAround(1+config.zoomStep, viewport.clientWidth/2, viewport.clientHeight/2),
+      'zoom-out': () => zoomAround(1/(1+config.zoomStep), viewport.clientWidth/2, viewport.clientHeight/2),
+      'zoom-fit': fitDiagram, 'zoom-expand': openInNewTab
+    };
+    Object.entries(actions).forEach(([a,h]) => wrap.querySelector(`[data-action="${a}"]`)?.addEventListener('click', h));
+    viewport.addEventListener('dblclick', fitDiagram);
+    viewport.addEventListener('wheel', (e) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const rect = viewport.getBoundingClientRect();
+        const f = e.deltaY < 0 ? 1+config.zoomStep : 1/(1+config.zoomStep);
+        zoomAround(f, e.clientX-rect.left, e.clientY-rect.top); return;
+      }
+      if (canPan()) { e.preventDefault(); panX -= e.deltaX; panY -= e.deltaY; applyTransform(); }
+    }, { passive:false });
+    viewport.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.zoom-controls') || !canPan()) return;
+      wrap.classList.add('is-panning'); sx=e.clientX; sy=e.clientY; spx=panX; spy=panY; e.preventDefault();
+      activeDrag = { onMove:(ev)=>{ panX=spx+(ev.clientX-sx); panY=spy+(ev.clientY-sy); applyTransform(); }, onEnd:()=>wrap.classList.remove('is-panning') };
+    });
+    viewport.addEventListener('touchstart',(e)=>{
+      if (e.touches.length===1){ sx=e.touches[0].clientX; sy=e.touches[0].clientY; spx=panX; spy=panY; }
+      else if (e.touches.length===2){ const dx=e.touches[0].clientX-e.touches[1].clientX, dy=e.touches[0].clientY-e.touches[1].clientY; touchDist=Math.sqrt(dx*dx+dy*dy); const r=viewport.getBoundingClientRect(); touchCx=(e.touches[0].clientX+e.touches[1].clientX)/2-r.left; touchCy=(e.touches[0].clientY+e.touches[1].clientY)/2-r.top; }
+    }, {passive:true});
+    viewport.addEventListener('touchmove',(e)=>{
+      if (e.touches.length===1 && canPan()){ if(touchDist>0){ sx=e.touches[0].clientX; sy=e.touches[0].clientY; spx=panX; spy=panY; touchDist=0; } e.preventDefault(); panX=spx+(e.touches[0].clientX-sx); panY=spy+(e.touches[0].clientY-sy); applyTransform(); }
+      else if (e.touches.length===2 && touchDist>0){ e.preventDefault(); const dx=e.touches[0].clientX-e.touches[1].clientX, dy=e.touches[0].clientY-e.touches[1].clientY, d=Math.sqrt(dx*dx+dy*dy); zoomAround(d/touchDist, touchCx, touchCy); touchDist=d; }
+    }, {passive:false});
+    new ResizeObserver(()=>{ if(svgW){ setAdaptiveHeight(); fitDiagram(); } }).observe(wrap);
+    render();
+  }
+  document.querySelectorAll('.diagram-shell').forEach(initDiagram);
+</script>
+</body>
+</html>

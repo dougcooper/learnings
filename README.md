@@ -36,6 +36,12 @@ Rendered pages: **https://dougcooper.github.io/learnings/**
 | **Triple Ratchet** — Dodis, Jost, Katsumata, Prest, Schmidt (IACR 2025/078): Signal's Double Ratchet plus a post-quantum ratchet with erasure-coded chunks, the lattice RKEM Katana (hint-MLWE), the critical security flaw in prior lattice RKEM proofs, per-epoch bandwidth 1,416 B vs Kyber's 2,272 B | [open](https://dougcooper.github.io/learnings/messaging/triple-ratchet.html) | [`messaging/triple-ratchet.html`](messaging/triple-ratchet.html) |
 | **Sparse CKA** — Auerbach, Dodis, Jost, Katsumata, Schmidt (IACR 2025/2267): the epoch-vs-message mismatch under chunking, the Sparse CKA abstraction, three new protocols (Opp-UniKEM-CKA, Opp-BiKEM-CKA, Opp-RKEM-CKA) with opportunistic sending, the comparison framework on vulnerable *epoch* sets, the headline result — no protocol dominates across balanced / send-heavy / receive-heavy patterns | [open](https://dougcooper.github.io/learnings/messaging/iacr-2025-2267-explainer.html) | [`messaging/iacr-2025-2267-explainer.html`](messaging/iacr-2025-2267-explainer.html) |
 
+## DTN
+
+| Topic | Read | Source |
+|---|---|---|
+| **BPSec** — RFC 9172: the Bundle Protocol security layer for Delay-Tolerant Networking, the two services (BIB integrity, BCB confidentiality) as BP extension blocks, the Abstract Security Block CBOR structure, canonical forms and AAD, BCB-before-BIB processing with verifier/acceptor roles, block-interaction constraints, multi-source waypoint transformation, the "Olive" on-path-attacker threat model, and pluggable security contexts | [open](https://dougcooper.github.io/learnings/dtn/rfc9172-bpsec.html) | [`dtn/rfc9172-bpsec.html`](dtn/rfc9172-bpsec.html) |
+
 ## Adding one
 
 Drop a self-contained `.html` file in a topic directory (`tls/`, or a new one)
