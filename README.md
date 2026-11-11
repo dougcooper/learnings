@@ -14,6 +14,7 @@ Rendered pages: **https://dougcooper.github.io/learnings/**
 | **TLS 1.3** — RFC 8446: the 1-RTT handshake, key schedule, record layer, 0-RTT resumption, removed TLS 1.2 features, downgrade protection | [open](https://dougcooper.github.io/learnings/tls/rfc8446-tls13.html) | [`tls/rfc8446-tls13.html`](tls/rfc8446-tls13.html) |
 | **Hybrid key exchange** — RFC 9954: running a traditional and a post-quantum algorithm together in TLS 1.3, KEM abstraction, concatenated key shares and secrets, the fixed-length requirement | [open](https://dougcooper.github.io/learnings/tls/rfc9954-hybrid-kex.html) | [`tls/rfc9954-hybrid-kex.html`](tls/rfc9954-hybrid-kex.html) |
 | **Raw public keys** — RFC 7250: sending a bare `SubjectPublicKeyInfo` instead of a certificate, the two certificate-type extensions, per-direction negotiation, out-of-band trust (DANE, provisioning) | [open](https://dougcooper.github.io/learnings/tls/rfc7250-raw-public-keys.html) | [`tls/rfc7250-raw-public-keys.html`](tls/rfc7250-raw-public-keys.html) |
+| **Mutual-TLS OAuth** — RFC 8705: authenticating clients with X.509 certificates (PKI subject matching vs self-signed `jwks` registration), certificate-bound access and refresh tokens via the `cnf.x5t#S256` thumbprint, introspection confirmation, `mtls_endpoint_aliases`, public clients, and the deployability and security sharp edges | [open](https://dougcooper.github.io/learnings/tls/rfc8705-mtls-oauth.html) | [`tls/rfc8705-mtls-oauth.html`](tls/rfc8705-mtls-oauth.html) |
 
 ## QUIC
 
